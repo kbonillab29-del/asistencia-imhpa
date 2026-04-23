@@ -227,7 +227,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="sb-dir">Dirección de Climatología</div>
     </div>
     <div class="sb-nav">
-      <div class="sb-nav-item active" onclick="show('s-welcome');setSbActive(this)">
+      <div class="sb-nav-item active" onclick="show('s-welcome');
+sincronizarPersonas();setSbActive(this)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         Inicio
       </div>
@@ -466,6 +467,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script>
 const FLOW_URL="https://hook.us2.make.com/rt1eyjiqoq4428gtc9rmlb79uf19yu2c";
+const API_URL="https://script.google.com/macros/s/AKfycbyJGzeTIU6VxygjZv-OTsIyo3GKv4Z_Nk6uLCD8QuiRwd7yxn5aNFQ55455rksxBRCd/exec";
 const PIN_DIRECTORA="123";
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const MESES_C=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -475,8 +477,22 @@ function hoy(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth
 function horaActual(){const n=new Date();return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;}
 function getIni(n){return n.split(' ').slice(0,2).map(p=>p[0].toUpperCase()).join('');}
 let PERSONAS=JSON.parse(localStorage.getItem('imhpa_personas')||'[]');
-if(!PERSONAS.length){PERSONAS=[];guardarPersonas();}
 function guardarPersonas(){localStorage.setItem('imhpa_personas',JSON.stringify(PERSONAS));}
+async function sincronizarPersonas(){
+  try{
+    const resp=await fetch(API_URL+'?accion=cargar_personas');
+    const data=await resp.json();
+    if(data.ok&&data.personas&&data.personas.length){
+      // Merge: keep local reg history, update from server
+      data.personas.forEach(sp=>{
+        const existing=PERSONAS.find(p=>p.nom===sp.nom);
+        if(!existing){PERSONAS.push({nom:sp.nom,dept:sp.dept||'Sin área',dir:String(sp.dir||''),ini:sp.ini||getIni(sp.nom),reg:{}});}
+        else{existing.dir=String(sp.dir||existing.dir);existing.dept=sp.dept||existing.dept;}
+      });
+      guardarPersonas();renderLista();
+    }
+  }catch(e){}
+}
 let pidx=null,calMes=3,calAnio=2026,pdfOpt='dia',clkInt=null,activeDay=null;
 const TAREAS={'2026-04-06':['Procesamiento de Datos','Solicitudes pendientes','ES: Inicio de Práctica'],'2026-04-07':['JB: Curso WRF','AL/KB: Reunión Natura'],'2026-04-08':['JB: Curso WRF','Preparativos de pronóstico'],'2026-04-09':['Discusión de pronóstico','JB: Curso WRF'],'2026-04-10':['Discusión de pronóstico','JB: Curso WRF','Todas: grabación vídeo'],'2026-04-13':['Procesamiento de Datos','ED/VB/JB: presentación MJJ','Preparación para las MTAs'],'2026-04-14':['IJ/NG/MD/KB/YA: Deportivo','ED/VB: Foro Regional'],'2026-04-15':['RC: Boletín climático','KB/NG/RC: Hechos del Clima','ED/VB: Foro Regional','Revisión del calendario'],'2026-04-16':['RC: Grabar en Malek','AL: Reunión Natura','ED/VB: Foro Regional'],'2026-04-17':['RC: Grabar en Malek','VB: presentar CND','JB/NG: publicar Hechos del Clima'],'2026-04-20':['Procesamiento de Datos','Preparación para las MTAs'],'2026-04-21':['JB/NG: Publicar vídeo y boletín','VB/IJ: MTA Bocas del Toro'],'2026-04-22':['LG/AL: Conferencia de Prensa','Aniversario IMHPA','VB/IJ: MTA Chiriquí'],'2026-04-23':['Revisión del calendario','ED/JB/AL: Curso de ECC IMHPA'],'2026-04-27':['Procesamiento de Datos','Solicitudes pendientes'],'2026-05-01':['Libre — Día del trabajo'],'2026-05-05':['ED/YA: MTA Los Santos','Revisión del calendario'],'2026-05-06':['ED/YA: MTA Herrera','Foro CONEP David'],'2026-05-07':['ED/YA: MTA Veraguas','NG: publicar boletín en CW'],'2026-05-08':['ED/YA: MTA Coclé','JB/NG/VA: MTA Panamá Oeste'],'2026-05-11':['Procesamiento de Datos','JB/MD/VA: MTA Colón'],'2026-05-12':['RC/KB: MTA Chepo'],'2026-05-13':['RC/KB: MTA Darién'],'2026-05-15':['NG: Publicar lluvia mes anterior','KB/Todas: Curso Digimet'],'2026-05-19':['Discusión de pronóstico'],'2026-05-20':['Discusión de pronóstico'],'2026-05-21':['JB/NG: publicar Hechos del Clima'],'2026-05-22':['RC: Grabar en Colón Centro','ED/JB: Entregar el IPO'],'2026-05-27':['JB/NG: Publicar vídeo'],'2026-05-29':['Revisión del calendario']};
 window.addEventListener('DOMContentLoaded',()=>{
@@ -556,13 +572,14 @@ async function marcar(tipo){
   const ld=document.getElementById('loading');ld.style.display='flex';document.getElementById('loading-msg').textContent=tipo==='entrada'?'Registrando entrada...':'Registrando salida...';
   let flowOk=false;
   try{
-    const resp=await fetch(FLOW_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:p.nom,departamento:p.dept,direccion:p.dir||'',tipo,hora,fecha,horaEntrada:tipo==='entrada'?hora:(p.reg[fecha]?p.reg[fecha].e||'':''),horaSalida:tipo==='salida'?hora:''})});
-    flowOk=resp.ok||resp.status===202;
+    const resp=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'marcar',nombre:p.nom,departamento:p.dept,posicion:p.dir||'',tipo,hora,fecha})});
+    const data=await resp.json();
+    flowOk=data.ok===true;
   }catch(e){flowOk=false;}
   ld.style.display='none';
   // Mostrar estado de sincronización con SharePoint
   const syncEl=document.getElementById('sync-status');
-  if(syncEl){syncEl.textContent=flowOk?'✓ Guardado en SharePoint':'⚠ Guardado local (sin conexión)';syncEl.style.color=flowOk?'var(--green)':'#e67e22';syncEl.style.display='block';}
+  if(syncEl){syncEl.textContent=flowOk?'✓ Guardado en Google Sheets':'⚠ Guardado local (sin conexión)';syncEl.style.color=flowOk?'var(--green)':'#e67e22';syncEl.style.display='block';}
 
   if(!p.reg[fecha])p.reg[fecha]={e:'',s:''};if(tipo==='entrada')p.reg[fecha].e=hora;else p.reg[fecha].s=hora;guardarPersonas();
   const r=p.reg[fecha];const[y,m,d]=fecha.split('-');const fmtF=`${d}/${m}/${y.slice(2)}`;const dias=Object.keys(p.reg).length;
@@ -576,7 +593,7 @@ async function registrar(){
   const nueva={nom,dept:dept||'Sin área',dir:cedula||'',ini:getIni(nom),reg:{}};
   PERSONAS.unshift(nueva);guardarPersonas();pidx=0;
   // Registrar persona nueva en la hoja Personas del Excel
-  try{await fetch(FLOW_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',direccion:cedula||'',fecha:hoy(),hora:'',tipo:'persona'})});}catch(e){}
+  try{await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||'',fecha:hoy()})});}catch(e){}
   abrirCI(0);
 }
 function calPrev(){if(calMes>3)calMes--;renderCal();}function calNext(){if(calMes<4)calMes++;renderCal();}
