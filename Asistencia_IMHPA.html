@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IMHPA — Control de Asistencia</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--dark:#111E45;--mid:#1976D2;--light:#E3F2FD;--green:#1a6b3c;--glight:#e8f5ed;--red:#c0392b;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(175deg,#0a1628 0%,#111E45 45%,#1a3a6b 70%,#1976D2 100%);min-height:100vh;}
+
+/* LAYOUT RESPONSIVE */
+.app-layout{display:flex;min-height:100vh;}
+.sidebar{width:280px;background:var(--dark);flex-shrink:0;display:none;flex-direction:column;}
+.main-area{flex:1;display:flex;justify-content:center;background:transparent;}
+.wrap{width:100%;max-width:480px;background:#fff;min-height:100vh;}
+
+/* DESKTOP: sidebar visible, wrap wider */
+@media(min-width:768px){
+  .sidebar{display:flex;}
+  .wrap{max-width:600px;box-shadow:0 0 40px rgba(0,0,0,0.1);}
+  .hero-bg{min-height:auto;padding:3rem 2.5rem 2.5rem;}
+  .ci-body{padding:2rem 2rem 1rem;}
+  .r-body,.s-body,.suc-body,.dir-body{padding:1.75rem 2rem;}
+  .btn-row{gap:16px;}
+  .btn-ent,.btn-sal{padding:1rem;font-size:16px;}
+  .clock{font-size:42px;}
+  .cal-wrap{padding:0 1.5rem 1rem;}
+  .pdf-wrap{padding:.75rem 2rem 2rem;}
+  .update-banner{margin:0 2rem .85rem;}
+  .sec-lbl{padding:.75rem 2rem .4rem;}
+  .stats-grid{grid-template-columns:repeat(4,1fr);}
+}
+
+/* SIDEBAR CONTENT */
+.sb-logo{padding:2rem 1.5rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.1);}
+.sb-logo-circle{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;margin-bottom:.75rem;}
+.sb-inst{color:rgba(255,255,255,.6);font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.sb-dir{color:#fff;font-size:14px;font-weight:600;}
+.sb-nav{padding:1.25rem 0;flex:1;}
+.sb-nav-item{display:flex;align-items:center;gap:12px;padding:.75rem 1.5rem;color:rgba(255,255,255,.7);font-size:13px;cursor:pointer;border-left:3px solid transparent;}
+.sb-nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+.sb-nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:var(--mid);}
+.sb-nav-item svg{flex-shrink:0;}
+.sb-footer{padding:1rem 1.5rem;border-top:1px solid rgba(255,255,255,.1);}
+.sb-footer-txt{color:rgba(255,255,255,.35);font-size:10px;line-height:1.5;}
+
+/* SCREENS */
+.screen{display:none;}.screen.active{display:block;}
+
+/* WELCOME */
+.hero-bg{background:linear-gradient(175deg,#0a1628 0%,#111E45 45%,#1a3a6b 70%,#1976D2 100%);padding:3rem 1.5rem 2rem;position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+.cloud{position:absolute;background:rgba(255,255,255,0.07);border-radius:50px;}
+.c1{width:180px;height:55px;top:30px;left:-30px;}.c1::before{content:'';position:absolute;width:90px;height:70px;background:rgba(255,255,255,0.07);border-radius:50%;top:-30px;left:30px;}.c1::after{content:'';position:absolute;width:60px;height:55px;background:rgba(255,255,255,0.07);border-radius:50%;top:-20px;left:80px;}
+.c2{width:140px;height:42px;top:80px;right:-10px;}.c2::before{content:'';position:absolute;width:70px;height:55px;background:rgba(255,255,255,0.07);border-radius:50%;top:-25px;left:20px;}
+.c3{width:100px;height:30px;top:140px;left:20px;opacity:.5;}.c4{width:160px;height:40px;top:55px;left:100px;opacity:.4;}
+.stars{position:absolute;top:0;left:0;right:0;height:200px;overflow:hidden;}
+.star{position:absolute;background:#fff;border-radius:50%;}
+.badge-wrap{position:relative;z-index:2;text-align:center;width:100%;}
+.dc-circle{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;}
+.dc-text{color:#fff;font-size:24px;font-weight:700;letter-spacing:1px;}
+.inst-name{color:rgba(255,255,255,0.7);font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;}
+.dir-name{color:#fff;font-size:16px;font-weight:600;margin-bottom:4px;}
+.ctrl-name{color:rgba(255,255,255,0.85);font-size:13px;margin-bottom:2rem;}
+.divider-line{width:40px;height:2px;background:rgba(255,255,255,0.3);margin:0 auto 1.5rem;border-radius:2px;}
+.fecha-badge{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;color:rgba(255,255,255,0.85);font-size:11px;margin-bottom:1.75rem;display:inline-block;}
+.btn-main{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:1rem;background:#1976D2;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:.75rem;box-shadow:0 4px 20px rgba(25,118,210,0.4);}
+.btn-sec{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:.95rem;background:#1a6b3c;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:.75rem;box-shadow:0 4px 20px rgba(26,107,60,0.35);}
+.btn-dir-w{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:.85rem;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.25);border-radius:12px;font-size:14px;font-weight:500;cursor:pointer;}
+.footer-strip{background:#0a1628;padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;}
+.footer-strip span{color:rgba(255,255,255,0.4);font-size:10px;}
+.online-dot{width:6px;height:6px;border-radius:50%;background:#1a6b3c;display:inline-block;margin-right:4px;}
+
+/* TOPBAR */
+.topbar{background:var(--dark);padding:14px 16px 12px;display:flex;align-items:center;gap:10px;}
+.tb-back{background:rgba(255,255,255,.15);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.topbar h1{color:#fff;font-size:15px;font-weight:500;flex:1;}
+.topbar-badge{background:rgba(255,255,255,.15);color:#fff;font-size:11px;padding:2px 8px;border-radius:20px;}
+
+/* SEARCH */
+.s-body{padding:1rem 1.25rem 0;}
+.sbox{display:flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:8px;padding:.5rem .75rem;background:#f8f9fa;margin-bottom:.85rem;}
+.sbox input{border:none;background:transparent;font-size:14px;color:#111;flex:1;}.sbox input:focus{outline:none;}
+.pcard{display:flex;align-items:center;gap:12px;padding:.7rem .85rem;border:1px solid #eee;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fff;}.pcard:hover{background:#f8f9fa;}
+.av{width:40px;height:40px;border-radius:50%;background:var(--light);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:var(--dark);flex-shrink:0;}
+.pn{font-size:14px;font-weight:500;color:#111;}.pd{font-size:12px;color:#666;}
+.pill{margin-left:auto;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;white-space:nowrap;}
+.pin-p{background:var(--glight);color:var(--green);}.pout{background:var(--light);color:var(--dark);}
+
+/* REGISTER */
+.r-body{padding:1.25rem;}
+.fl{font-size:13px;color:#555;margin-bottom:4px;margin-top:13px;}
+.fi{width:100%;padding:.62rem .75rem;border:1px solid #ddd;border-radius:8px;font-size:14px;color:#111;background:#fff;}.fi:focus{outline:none;border-color:var(--mid);}
+.btn-p{display:block;width:100%;padding:.8rem;background:var(--mid);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:.7rem;text-align:center;}
+.btn-s{display:block;width:100%;padding:.78rem;background:transparent;color:var(--mid);border:1.5px solid var(--mid);border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:.7rem;text-align:center;}
+
+/* CHECKIN */
+.ci-body{padding:1.25rem 1.25rem .75rem;}
+.ci-av{width:72px;height:72px;border-radius:50%;background:var(--light);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:500;color:var(--dark);margin:0 auto .7rem;}
+.ci-nom{text-align:center;font-size:18px;font-weight:500;color:#111;margin-bottom:2px;}
+.ci-dep{text-align:center;font-size:12px;color:#666;margin-bottom:1.1rem;}
+.clock{text-align:center;font-size:36px;font-weight:500;color:var(--dark);letter-spacing:1px;margin-bottom:2px;}
+.clock-d{text-align:center;font-size:12px;color:#666;margin-bottom:1.25rem;}
+.btn-row{display:flex;gap:10px;margin-bottom:.85rem;}
+.btn-ent{flex:1;padding:.82rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;}
+.btn-sal{flex:1;padding:.82rem;background:transparent;color:var(--red);border:1.5px solid var(--red);border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;}
+.hist-lbl{font-size:12px;color:#666;font-weight:500;margin-bottom:5px;}
+.hist-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid #f0f0f0;}
+
+/* BANNER */
+.update-banner{margin:0 1.25rem .85rem;background:var(--dark);border-radius:10px;padding:.9rem 1rem;display:flex;align-items:center;gap:10px;}
+.update-icon{font-size:22px;flex-shrink:0;}
+.update-txt{flex:1;}
+.update-label{color:rgba(255,255,255,.6);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.update-date{color:#fff;font-size:13px;font-weight:500;}
+.update-note{color:rgba(255,255,255,.7);font-size:11px;margin-top:2px;}
+.sec-lbl{font-size:13px;font-weight:500;color:var(--dark);padding:.65rem 1.25rem .35rem;border-top:1px solid #f0f0f0;margin-top:.25rem;}
+
+/* CALENDAR */
+.cal-wrap{padding:0 1rem .85rem;}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem;}
+.cal-nav button{background:var(--light);border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;color:var(--dark);font-size:14px;font-weight:500;}
+.cal-title{font-size:13px;font-weight:500;color:var(--dark);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;}
+.cal-hdr{text-align:center;font-size:10px;color:#888;padding:2px 0;font-weight:500;}
+.cd{text-align:center;font-size:11px;padding:3px 1px 2px;border-radius:5px;cursor:pointer;color:#111;min-height:32px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;}
+.cd:hover{background:var(--light);}.cd.empty{cursor:default;}.cd.today{background:var(--dark);color:#fff!important;font-weight:500;}.cd.wk{color:#aaa;}.cd.libre{background:#f0f4ff;}
+.task-dot{width:4px;height:4px;border-radius:50%;background:var(--mid);}
+.dot-e{width:4px;height:4px;border-radius:50%;background:var(--green);}
+.dot-s{width:4px;height:4px;border-radius:50%;background:var(--red);}
+.dot-row{display:flex;gap:2px;justify-content:center;}
+.cd.today .dot-e,.cd.today .dot-s,.cd.today .task-dot{background:#fff;}
+.task-pop{background:#fff;border:1px solid #ddd;border-radius:8px;padding:.65rem .85rem;margin:.4rem 0;font-size:11px;color:#333;line-height:1.7;}
+.task-pop-title{font-size:12px;font-weight:500;color:var(--dark);margin-bottom:4px;}
+.cal-legend{display:flex;gap:10px;margin-top:6px;font-size:10px;color:#888;}
+.cal-legend span{display:flex;align-items:center;gap:3px;}
+.leg-dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+
+/* PDF */
+.pdf-wrap{padding:.5rem 1.25rem 1.5rem;}
+.pdf-opts{display:flex;gap:8px;margin-bottom:.75rem;}
+.pdf-opt{flex:1;padding:.55rem;border:1px solid #ddd;border-radius:8px;font-size:13px;text-align:center;cursor:pointer;color:#333;background:#fff;}
+.pdf-opt.active{background:var(--dark);color:#fff;border-color:var(--dark);}
+.btn-pdf{display:block;width:100%;padding:.72rem;background:var(--dark);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;text-align:center;margin-bottom:.5rem;}
+.pdf-note{font-size:11px;color:#666;margin-top:.5rem;text-align:center;}
+
+/* SUCCESS */
+.suc-body{padding:1.5rem 1.25rem;}
+.suc-icon{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;margin:0 auto .9rem;}
+.suc-t{text-align:center;font-size:18px;font-weight:500;color:#111;margin-bottom:3px;}
+.suc-s{text-align:center;font-size:12px;color:#666;margin-bottom:.3rem;}
+.suc-hr{text-align:center;font-size:28px;font-weight:500;margin-bottom:1.25rem;}
+.persist-note{font-size:11px;color:var(--green);text-align:center;margin-bottom:.85rem;font-weight:500;}
+.xprev{background:#f8f9fa;border-radius:8px;border:1px solid #eee;padding:.75rem .9rem;margin-bottom:.85rem;}
+.xhdr{display:flex;gap:5px;font-size:10px;color:#888;margin-bottom:4px;}
+.xhdr span,.xrow span{flex:1;}
+.xrow{display:flex;gap:5px;font-size:11px;color:#111;}
+.xhl{background:var(--glight);border-radius:3px;padding:1px 5px;color:var(--green);}
+
+/* DIRECTORA */
+.dir-hero{background:linear-gradient(135deg,#0a1628 0%,#111E45 60%,#1a3a6b 100%);padding:2rem 1.5rem 1.5rem;text-align:center;}
+.dir-title{color:#fff;font-size:18px;font-weight:600;margin-bottom:4px;}
+.dir-sub{color:rgba(255,255,255,.65);font-size:12px;}
+.dir-body{padding:1.25rem;}
+.dir-card{background:var(--light);border-radius:10px;padding:1rem;margin-bottom:1rem;border:1px solid #b3d4f0;}
+.dir-card-title{font-size:13px;font-weight:600;color:var(--dark);margin-bottom:5px;}
+.dir-card-sub{font-size:12px;color:#555;margin-bottom:.85rem;}
+.btn-dir-dl{display:block;width:100%;padding:.75rem;background:var(--dark);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;text-align:center;margin-bottom:.5rem;}
+.btn-dir-dl2{display:block;width:100%;padding:.75rem;background:var(--mid);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;text-align:center;}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;}
+.stat-card{background:#f8f9fa;border-radius:8px;padding:.75rem;text-align:center;border:1px solid #eee;}
+.stat-num{font-size:22px;font-weight:600;color:var(--dark);}
+.stat-lbl{font-size:11px;color:#666;margin-top:2px;}
+.person-row{display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid #f0f0f0;}
+.person-row:last-child{border-bottom:none;}
+.pr-av{width:34px;height:34px;border-radius:50%;background:var(--light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--dark);flex-shrink:0;}
+.pr-nom{font-size:13px;font-weight:500;color:#111;flex:1;}
+.pr-dias{font-size:11px;color:#666;}
+
+/* LOADING */
+.loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(17,30,69,.75);display:none;align-items:center;justify-content:center;z-index:999;}
+.loading-box{background:#fff;border-radius:12px;padding:1.5rem 2rem;text-align:center;min-width:200px;}
+.loading-box p{font-size:14px;color:#333;margin-top:.6rem;}
+.spinner{width:36px;height:36px;border:3px solid #E3F2FD;border-top-color:var(--mid);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.err-msg{background:#fdecea;border:1px solid #f5c6cb;border-radius:8px;padding:.65rem .85rem;font-size:12px;color:var(--red);margin:.5rem 0;display:none;}
+
+/* PIN MODAL */
+.pin-modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(17,30,69,.8);display:none;align-items:center;justify-content:center;z-index:998;}
+.pin-modal{background:#fff;border-radius:14px;padding:1.75rem 1.5rem;width:280px;text-align:center;}
+.pin-title{font-size:16px;font-weight:600;color:var(--dark);margin-bottom:6px;}
+.pin-sub{font-size:12px;color:#666;margin-bottom:1.25rem;}
+.pin-input{width:100%;padding:.7rem;border:1px solid #ddd;border-radius:8px;font-size:18px;text-align:center;letter-spacing:4px;color:var(--dark);font-weight:600;}
+.pin-input:focus{outline:none;border-color:var(--mid);}
+.pin-btn{display:block;width:100%;padding:.75rem;background:var(--dark);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;margin-top:.85rem;}
+.pin-err{font-size:12px;color:var(--red);margin-top:.5rem;display:none;}
+.pin-cancel{font-size:12px;color:#888;margin-top:.75rem;cursor:pointer;display:block;}
+
+/* CONFIG BUTTON */
+.cfg-btn{position:fixed;bottom:18px;left:18px;width:36px;height:36px;border-radius:50%;background:rgba(17,30,69,0.7);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:990;transition:all .2s;}
+.cfg-btn:hover{background:rgba(17,30,69,0.95);color:#fff;}
+/* CONFIG MODAL */
+.cfg-modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(17,30,69,.85);display:none;align-items:center;justify-content:center;z-index:997;}
+.cfg-modal{background:#fff;border-radius:14px;padding:1.75rem 1.5rem;width:320px;max-width:90vw;}
+.cfg-title{font-size:16px;font-weight:600;color:#111E45;margin-bottom:4px;}
+.cfg-sub{font-size:12px;color:#666;margin-bottom:1.25rem;}
+.cfg-lbl{font-size:12px;color:#555;margin-bottom:4px;margin-top:12px;}
+.cfg-input{width:100%;padding:.6rem .75rem;border:1px solid #ddd;border-radius:8px;font-size:13px;color:#111;}
+.cfg-input:focus{outline:none;border-color:#1976D2;}
+.cfg-save{display:block;width:100%;padding:.75rem;background:#111E45;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:1.25rem;}
+.cfg-cancel{display:block;text-align:center;font-size:12px;color:#888;margin-top:.75rem;cursor:pointer;}
+.cfg-ok{font-size:12px;color:#1a6b3c;text-align:center;margin-top:.5rem;display:none;font-weight:500;}
+/* PIN CONFIG */
+.cfg-pin-step{display:block;}.cfg-form-step{display:none;}
+</style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR (solo desktop) -->
+  <div class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-circle">DC</div>
+      <div class="sb-inst">Instituto de Meteorología e Hidrología de Panamá</div>
+      <div class="sb-dir">Dirección de Climatología</div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-nav-item active" onclick="show('s-welcome');setSbActive(this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Inicio
+      </div>
+      <div class="sb-nav-item" onclick="show('s-search');setSbActive(this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Buscar mi nombre
+      </div>
+      <div class="sb-nav-item" onclick="show('s-register');setSbActive(this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        Registrarme
+      </div>
+      <div class="sb-nav-item" onclick="abrirPin();setSbActive(this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Área de la Directora
+      </div>
+    </div>
+    <div class="sb-footer">
+      <div class="sb-footer-txt">Desarrollado por<br><strong style="color:rgba(255,255,255,.6)">Katherine Bonilla</strong><br>IMHPA © 2026</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-area">
+    <div class="wrap">
+
+      <div class="loading-overlay" id="loading">
+        <div class="loading-box"><div class="spinner"></div><p id="loading-msg">Registrando...</p></div>
+      </div>
+
+      <div class="pin-modal-bg" id="pin-modal">
+        <div class="pin-modal">
+          <div class="pin-title">Área de la Directora</div>
+          <div class="pin-sub">Ingresa el código de acceso</div>
+          <input class="pin-input" type="password" id="pin-input" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter')verificarPin()"/>
+          <button class="pin-btn" onclick="verificarPin()">Ingresar</button>
+          <div class="pin-err" id="pin-err">Código incorrecto.</div>
+          <span class="pin-cancel" onclick="cerrarPin()">Cancelar</span>
+        </div>
+      </div>
+
+      <!-- WELCOME -->
+      <div class="screen active" id="s-welcome">
+        <div class="hero-bg">
+          <div class="stars" id="stars"></div>
+          <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="cloud c4"></div>
+          <div class="badge-wrap">
+            <div class="dc-circle"><span class="dc-text">DC</span></div>
+            <div class="inst-name">Instituto de Meteorología e Hidrología de Panamá</div>
+            <div class="dir-name">Dirección de Climatología</div>
+            <div class="ctrl-name">Control de Asistencia</div>
+            <div class="divider-line"></div>
+            <div class="fecha-badge" id="fecha-hoy"></div>
+            <div style="margin-top:1rem">
+              <button class="btn-main" onclick="show('s-search')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                Buscar mi nombre
+              </button>
+              <button class="btn-sec" onclick="show('s-register')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                Registrarme por primera vez
+              </button>
+              <button class="btn-dir-w" onclick="abrirPin()">Área de la Directora</button>
+            </div>
+          </div>
+        </div>
+        <div class="footer-strip">
+          <span><span class="online-dot"></span>Sistema activo · SharePoint</span>
+          <span>Desarrollado por Katherine Bonilla · IMHPA © 2026</span>
+        </div>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="screen" id="s-register">
+        <div class="topbar">
+          <button class="tb-back" onclick="show('s-welcome')">&#8592;</button>
+          <h1>Primer registro</h1><span class="topbar-badge">IMHPA</span>
+        </div>
+        <div class="r-body">
+          <div class="fl">Nombre completo</div><input class="fi" type="text" id="reg-nom" placeholder="Ej: María García"/>
+          <div class="fl">Departamento / Área</div><input class="fi" type="text" id="reg-dept" placeholder="Ej: Climatología"/>
+          <div class="fl">Número de posición</div><input class="fi" type="number" id="reg-id" placeholder="Ej: 76"/>
+          <button class="btn-p" style="margin-top:1.5rem" onclick="registrar()">Registrarme y hacer check-in</button>
+        </div>
+      </div>
+
+      <!-- SEARCH -->
+      <div class="screen" id="s-search">
+        <div class="topbar">
+          <button class="tb-back" onclick="show('s-welcome')">&#8592;</button>
+          <h1>¿Quién eres?</h1><span class="topbar-badge">IMHPA</span>
+        </div>
+        <div class="s-body">
+          <div class="sbox">
+            <span style="font-size:14px;color:#aaa">&#128269;</span>
+            <input type="text" placeholder="Buscar por nombre..." oninput="filtrar(this.value)" id="s-input"/>
+          </div>
+          <div id="lista"></div>
+        </div>
+      </div>
+
+      <!-- CHECKIN -->
+      <div class="screen" id="s-checkin">
+        <div class="topbar">
+          <button class="tb-back" onclick="show('s-search')">&#8592;</button>
+          <h1>Marcar asistencia</h1><span class="topbar-badge">IMHPA</span>
+        </div>
+        <div class="ci-body">
+          <div class="ci-av" id="ci-av">MG</div>
+          <div class="ci-nom" id="ci-nom">María García</div>
+          <div class="ci-dep" id="ci-dep">Climatología</div>
+          <div class="clock" id="ci-clk">08:32:00</div>
+          <div class="clock-d" id="ci-dt">Miércoles, 15 de abril 2026</div>
+          <div class="btn-row">
+            <button class="btn-ent" onclick="marcar('entrada')">&#9654; Entrada</button>
+            <button class="btn-sal" onclick="marcar('salida')">&#9632; Salida</button>
+          </div>
+          <div class="err-msg" id="err-msg"></div>
+          <div class="hist-lbl">Últimos registros guardados</div>
+          <div id="ci-hist"></div>
+          <div style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid #f0f0f0;">
+            <div style="font-size:12px;color:#888;margin-bottom:.5rem;font-weight:500">¿Marcaste mal hoy? Corrige aquí</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="borrarMiRegistro('entrada')" style="flex:1;padding:.6rem;background:#fff;color:var(--green);border:1.5px solid var(--green);border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">Borrar mi entrada</button>
+              <button onclick="borrarMiRegistro('salida')" style="flex:1;padding:.6rem;background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">Borrar mi salida</button>
+              <button onclick="borrarMiRegistro('dia')" style="flex:1;padding:.6rem;background:#f8f8f8;color:#888;border:1px solid #ddd;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">Borrar el día</button>
+            </div>
+            <div id="del-personal-msg" style="font-size:11px;margin-top:.4rem;text-align:center;"></div>
+          </div>
+        </div>
+        <div class="update-banner">
+          <div class="update-icon">&#128197;</div>
+          <div class="update-txt">
+            <div class="update-label">Calendario de Tareas · Última actualización</div>
+            <div class="update-date" id="update-date">Cargando...</div>
+            <div class="update-note">Revisado hoy en el calendario del correo</div>
+          </div>
+        </div>
+        <div class="sec-lbl">Calendario de tareas — Abril / Mayo 2026</div>
+        <div class="cal-wrap">
+          <div class="cal-nav">
+            <button onclick="calPrev()">&#8249;</button>
+            <span class="cal-title" id="cal-title">Abril 2026</span>
+            <button onclick="calNext()">&#8250;</button>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <div id="task-popup"></div>
+          <div class="cal-legend">
+            <span><span class="leg-dot" style="background:var(--green)"></span>Entrada</span>
+            <span><span class="leg-dot" style="background:var(--red)"></span>Salida</span>
+            <span><span class="leg-dot" style="background:var(--mid)"></span>Tarea</span>
+            <span><span class="leg-dot" style="background:var(--dark)"></span>Hoy</span>
+          </div>
+        </div>
+        <div class="sec-lbl">Mi reporte de asistencia</div>
+        <div class="pdf-wrap">
+          <div class="pdf-opts">
+            <div class="pdf-opt active" id="opt-d" onclick="selPdf('dia')">Reporte diario</div>
+            <div class="pdf-opt" id="opt-s" onclick="selPdf('sem')">Reporte semanal</div>
+          </div>
+          <button class="btn-pdf" onclick="genPDF()">&#8659; Descargar mi PDF</button>
+          <div class="pdf-note" id="pdf-st"></div>
+        </div>
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="screen" id="s-success">
+        <div class="topbar"><h1 id="suc-tb">Entrada registrada</h1><span class="topbar-badge">IMHPA</span></div>
+        <div class="suc-body">
+          <div class="suc-icon" id="suc-ic" style="background:var(--green)">&#10003;</div>
+          <div class="suc-t" id="suc-t">¡Entrada marcada!</div>
+          <div class="suc-s">Guardado en Excel SharePoint — nunca se borra, solo se actualiza</div>
+          <div class="suc-hr" id="suc-hr" style="color:var(--green)">08:32</div>
+          <div class="persist-note">&#128190; Fila actualizada · <span id="suc-count">0</span> días registrados en total</div>
+          <div id="sync-status" style="display:none;font-size:11px;font-weight:600;text-align:center;margin-bottom:.6rem;"></div>
+          <div class="xprev">
+            <div style="font-size:11px;color:#888;margin-bottom:6px;">&#128196; Excel SharePoint — ACTUALIZADO (no borrado)</div>
+            <div class="xhdr"><span>Nombre</span><span>Fecha</span><span>Entrada</span><span>Salida</span></div>
+            <div class="xrow"><span id="x-nom">—</span><span id="x-fec">—</span><span><span class="xhl" id="x-ent">—</span></span><span id="x-sal" style="color:#aaa">—</span></div>
+          </div>
+          <button class="btn-p" onclick="show('s-search')">Listo</button>
+          <button class="btn-s" style="margin-top:0" onclick="show('s-checkin')">Ver mi calendario</button>
+        </div>
+      </div>
+
+      <!-- DIRECTORA -->
+      <div class="screen" id="s-directora">
+        <div class="dir-hero">
+          <div class="dir-title">Área de la Directora</div>
+          <div class="dir-sub">Katherine Bonilla · Dirección de Climatología</div>
+        </div>
+        <div class="dir-body">
+          <div class="stats-grid" id="dir-stats"></div>
+          <div class="sec-lbl" style="padding-left:0;border-top:none;margin-bottom:.75rem">Personal registrado hoy</div>
+          <div id="dir-lista-hoy"></div>
+          <div class="sec-lbl" style="padding-left:0;margin-top:1rem;margin-bottom:.75rem">Descargar reportes generales</div>
+          <div class="dir-card">
+            <div class="dir-card-title">&#128196; Reporte diario — todo el personal</div>
+            <div class="dir-card-sub">Entrada y salida de todas las personas registradas hoy</div>
+            <button class="btn-dir-dl" onclick="genPDFDirectora('dia')">&#8659; Descargar reporte del día</button>
+          </div>
+          <div class="dir-card">
+            <div class="dir-card-title">&#128203; Reporte semanal — todo el personal</div>
+            <div class="dir-card-sub">Resumen de los últimos 7 días de todo el equipo</div>
+            <button class="btn-dir-dl2" onclick="genPDFDirectora('sem')">&#8659; Descargar reporte semanal</button>
+          </div>
+          <div class="pdf-note" id="dir-pdf-st" style="margin-top:.5rem"></div>
+
+          <div class="sec-lbl" style="padding-left:0;margin-top:1.25rem;margin-bottom:.75rem;border-top:1px solid #eee;padding-top:.75rem">&#9888;&#65039; Zona de correcciones</div>
+          <div class="dir-card" style="background:#fff8f8;border-color:#f5c6cb;">
+            <div class="dir-card-title" style="color:var(--red)">Borrar registro del día</div>
+            <div class="dir-card-sub">Selecciona una persona y elige qué borrar</div>
+            <select id="del-persona" class="fi" style="margin-bottom:.65rem">
+              <option value="">— Selecciona una persona —</option>
+            </select>
+            <div style="display:flex;gap:8px;margin-bottom:.5rem">
+              <button onclick="borrarRegistro('entrada')" style="flex:1;padding:.65rem;background:#fff;color:var(--green);border:1.5px solid var(--green);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">Borrar entrada</button>
+              <button onclick="borrarRegistro('salida')" style="flex:1;padding:.65rem;background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">Borrar salida</button>
+              <button onclick="borrarRegistro('dia')" style="flex:1;padding:.65rem;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">Borrar día</button>
+            </div>
+            <div class="pdf-note" id="del-msg" style="margin-top:.35rem"></div>
+          </div>
+
+          <div class="dir-card" style="background:#fff8f8;border-color:#f5c6cb;">
+            <div class="dir-card-title" style="color:var(--red)">Resetear todo</div>
+            <div class="dir-card-sub">Borra todos los registros y personas. Todos empiezan desde cero.</div>
+            <button onclick="resetearTodo()" style="display:block;width:100%;padding:.72rem;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer">&#128465; Borrar todo y empezar de cero</button>
+          </div>
+
+          <button class="btn-s" style="margin-top:.5rem" onclick="show('s-welcome')">&#8592; Volver al inicio</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const FLOW_URL="https://default3ec2bfbdca5e48ce9ee3726656a7ae.ee.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/744444d48ffd49bd95f4223d9fec34aa/triggers/manual/paths/invoke?api-version=1";
+const PIN_DIRECTORA="123";
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MESES_C=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const DL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+function hoy(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;}
+function horaActual(){const n=new Date();return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;}
+function getIni(n){return n.split(' ').slice(0,2).map(p=>p[0].toUpperCase()).join('');}
+let PERSONAS=JSON.parse(localStorage.getItem('imhpa_personas')||'[]');
+if(!PERSONAS.length){PERSONAS=[];guardarPersonas();}
+function guardarPersonas(){localStorage.setItem('imhpa_personas',JSON.stringify(PERSONAS));}
+let pidx=null,calMes=3,calAnio=2026,pdfOpt='dia',clkInt=null,activeDay=null;
+const TAREAS={'2026-04-06':['Procesamiento de Datos','Solicitudes pendientes','ES: Inicio de Práctica'],'2026-04-07':['JB: Curso WRF','AL/KB: Reunión Natura'],'2026-04-08':['JB: Curso WRF','Preparativos de pronóstico'],'2026-04-09':['Discusión de pronóstico','JB: Curso WRF'],'2026-04-10':['Discusión de pronóstico','JB: Curso WRF','Todas: grabación vídeo'],'2026-04-13':['Procesamiento de Datos','ED/VB/JB: presentación MJJ','Preparación para las MTAs'],'2026-04-14':['IJ/NG/MD/KB/YA: Deportivo','ED/VB: Foro Regional'],'2026-04-15':['RC: Boletín climático','KB/NG/RC: Hechos del Clima','ED/VB: Foro Regional','Revisión del calendario'],'2026-04-16':['RC: Grabar en Malek','AL: Reunión Natura','ED/VB: Foro Regional'],'2026-04-17':['RC: Grabar en Malek','VB: presentar CND','JB/NG: publicar Hechos del Clima'],'2026-04-20':['Procesamiento de Datos','Preparación para las MTAs'],'2026-04-21':['JB/NG: Publicar vídeo y boletín','VB/IJ: MTA Bocas del Toro'],'2026-04-22':['LG/AL: Conferencia de Prensa','Aniversario IMHPA','VB/IJ: MTA Chiriquí'],'2026-04-23':['Revisión del calendario','ED/JB/AL: Curso de ECC IMHPA'],'2026-04-27':['Procesamiento de Datos','Solicitudes pendientes'],'2026-05-01':['Libre — Día del trabajo'],'2026-05-05':['ED/YA: MTA Los Santos','Revisión del calendario'],'2026-05-06':['ED/YA: MTA Herrera','Foro CONEP David'],'2026-05-07':['ED/YA: MTA Veraguas','NG: publicar boletín en CW'],'2026-05-08':['ED/YA: MTA Coclé','JB/NG/VA: MTA Panamá Oeste'],'2026-05-11':['Procesamiento de Datos','JB/MD/VA: MTA Colón'],'2026-05-12':['RC/KB: MTA Chepo'],'2026-05-13':['RC/KB: MTA Darién'],'2026-05-15':['NG: Publicar lluvia mes anterior','KB/Todas: Curso Digimet'],'2026-05-19':['Discusión de pronóstico'],'2026-05-20':['Discusión de pronóstico'],'2026-05-21':['JB/NG: publicar Hechos del Clima'],'2026-05-22':['RC: Grabar en Colón Centro','ED/JB: Entregar el IPO'],'2026-05-27':['JB/NG: Publicar vídeo'],'2026-05-29':['Revisión del calendario']};
+window.addEventListener('DOMContentLoaded',()=>{
+  const sc=document.getElementById('stars');
+  for(let i=0;i<30;i++){const d=document.createElement('div');d.className='star';const sz=Math.random()*2+1;d.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;opacity:${Math.random()*.6+.2};position:absolute;background:#fff;border-radius:50%`;sc.appendChild(d);}
+  const n=new Date();document.getElementById('fecha-hoy').textContent=`${DL[n.getDay()]}, ${n.getDate()} de ${MESES[n.getMonth()]} de ${n.getFullYear()}`;
+});
+function setSbActive(el){document.querySelectorAll('.sb-nav-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='s-search'){renderLista('');document.getElementById('s-input').value='';}
+  if(id==='s-checkin'){startClk();renderCal();renderHist();updateBanner();}
+  if(id==='s-directora')renderDirectora();
+  else stopClk();
+}
+function abrirPin(){document.getElementById('pin-modal').style.display='flex';document.getElementById('pin-input').value='';document.getElementById('pin-err').style.display='none';setTimeout(()=>document.getElementById('pin-input').focus(),100);}
+function cerrarPin(){document.getElementById('pin-modal').style.display='none';}
+function verificarPin(){const v=document.getElementById('pin-input').value;if(v===PIN_DIRECTORA){cerrarPin();show('s-directora');}else{document.getElementById('pin-err').style.display='block';document.getElementById('pin-input').value='';}}
+function borrarMiRegistro(tipo){
+  if(pidx===null)return;
+  const p=PERSONAS[pidx];const hoyStr=hoy();
+  const msg=document.getElementById('del-personal-msg');
+  if(!p.reg[hoyStr]||(!p.reg[hoyStr].e&&!p.reg[hoyStr].s)){msg.textContent='No tienes registros hoy para borrar.';msg.style.color='#888';return;}
+  const confirmMsg=tipo==='dia'?`¿Borrar todo tu registro de hoy?`:tipo==='entrada'?'¿Borrar tu entrada de hoy?':'¿Borrar tu salida de hoy?';
+  if(!confirm(confirmMsg))return;
+  if(tipo==='entrada')p.reg[hoyStr].e='';
+  else if(tipo==='salida')p.reg[hoyStr].s='';
+  else delete p.reg[hoyStr];
+  guardarPersonas();renderHist();
+  msg.textContent=`${tipo==='dia'?'Registro del día':tipo==='entrada'?'Entrada':'Salida'} borrado correctamente.`;
+  msg.style.color='var(--green)';
+}
+function borrarRegistro(tipo){
+  const sel=document.getElementById('del-persona');
+  const idx=parseInt(sel.value);
+  const msg=document.getElementById('del-msg');
+  if(isNaN(idx)){msg.textContent='Selecciona una persona primero.';msg.style.color='var(--red)';return;}
+  const p=PERSONAS[idx];const hoyStr=hoy();
+  const confirmMsg=tipo==='dia'?`¿Borrar TODO el registro de hoy de ${p.nom}?`:tipo==='entrada'?`¿Borrar la entrada de hoy de ${p.nom}?`:`¿Borrar la salida de hoy de ${p.nom}?`;
+  if(!confirm(confirmMsg))return;
+  if(!p.reg[hoyStr]){msg.textContent='Esta persona no tiene registro hoy.';msg.style.color='#888';return;}
+  if(tipo==='entrada')p.reg[hoyStr].e='';
+  else if(tipo==='salida')p.reg[hoyStr].s='';
+  else delete p.reg[hoyStr];
+  guardarPersonas();renderDirectora();
+  msg.textContent=`Registro de ${tipo==='dia'?'todo el día':tipo} borrado correctamente.`;msg.style.color='var(--green)';
+}
+function resetearTodo(){
+  if(!confirm('¿Estás segura? Esto borrará TODAS las personas y registros. Todos tendrán que registrarse de nuevo desde cero.'))return;
+  if(!confirm('Segunda confirmación: ¿Borrar absolutamente todo?'))return;
+  PERSONAS=[];guardarPersonas();renderDirectora();
+  alert('Todo borrado. Ahora todos pueden registrarse desde cero.');
+}
+function renderDirectora(){
+  const hoyStr=hoy();const total=PERSONAS.length;const presentes=PERSONAS.filter(p=>p.reg[hoyStr]&&p.reg[hoyStr].e).length;const conSalida=PERSONAS.filter(p=>p.reg[hoyStr]&&p.reg[hoyStr].s).length;const totalDias=PERSONAS.reduce((a,p)=>a+Object.keys(p.reg).length,0);
+  document.getElementById('dir-stats').innerHTML=`<div class="stat-card"><div class="stat-num">${total}</div><div class="stat-lbl">Personal</div></div><div class="stat-card"><div class="stat-num" style="color:var(--green)">${presentes}</div><div class="stat-lbl">Presentes hoy</div></div><div class="stat-card"><div class="stat-num" style="color:var(--red)">${conSalida}</div><div class="stat-lbl">Con salida</div></div><div class="stat-card"><div class="stat-num" style="color:var(--mid)">${totalDias}</div><div class="stat-lbl">Registros totales</div></div>`;
+  document.getElementById('dir-lista-hoy').innerHTML=PERSONAS.map(p=>{const r=p.reg[hoyStr];const tieneE=r&&r.e;const tieneS=r&&r.s;const estado=tieneS?`<span style="background:#fdecea;color:var(--red);font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500">Salió ${r.s}</span>`:tieneE?`<span style="background:var(--glight);color:var(--green);font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500">Entró ${r.e}</span>`:`<span style="background:#f0f0f0;color:#888;font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500">Sin marcar</span>`;return `<div class="person-row"><div class="pr-av">${p.ini}</div><div style="flex:1"><div class="pr-nom">${p.nom}</div><div class="pr-dias">${Object.keys(p.reg).length} días guardados</div></div>${estado}</div>`;}).join('');
+  const sel=document.getElementById('del-persona');
+  sel.innerHTML='<option value="">— Selecciona una persona —</option>'+PERSONAS.map((p,i)=>`<option value="${i}">${p.nom}</option>`).join('');
+}
+function filtrar(q){renderLista(q.toLowerCase());}
+function renderLista(q){
+  const c=document.getElementById('lista');const f=q?PERSONAS.filter(p=>p.nom.toLowerCase().includes(q)):PERSONAS;
+  if(!f.length){c.innerHTML='<div style="text-align:center;color:#aaa;font-size:13px;padding:2rem 0">No encontrado</div>';return;}
+  c.innerHTML=f.map(p=>{const i=PERSONAS.indexOf(p);const h=hoy();const tieneE=p.reg[h]&&p.reg[h].e;const dias=Object.keys(p.reg).length;return `<div class="pcard" onclick="abrirCI(${i})"><div class="av">${p.ini}</div><div><div class="pn">${p.nom}</div><div class="pd">${p.dept} · ${dias} día${dias!==1?'s':''} guardados</div></div><span class="pill ${tieneE?'pin-p':'pout'}">${tieneE?'Entró':'Sin marcar'}</span></div>`;}).join('');
+}
+function abrirCI(idx){pidx=idx;const p=PERSONAS[idx];document.getElementById('ci-av').textContent=p.ini;document.getElementById('ci-nom').textContent=p.nom;document.getElementById('ci-dep').textContent=p.dept;document.getElementById('err-msg').style.display='none';show('s-checkin');}
+function renderHist(){if(pidx===null)return;const p=PERSONAS[pidx];const el=document.getElementById('ci-hist');const keys=Object.keys(p.reg).sort().reverse().slice(0,5);if(!keys.length){el.innerHTML='<div class="hist-row"><span style="color:#aaa">Sin registros aún</span></div>';return;}el.innerHTML=keys.map(k=>{const r=p.reg[k];const[y,m,d]=k.split('-');return `<div class="hist-row"><span style="color:#888">${d}/${m}/${y.slice(2)}</span><span style="color:var(--green);font-weight:500">${r.e?'▶ '+r.e:'—'}</span><span style="color:var(--red);font-weight:500">${r.s?'■ '+r.s:'—'}</span></div>`;}).join('');}
+function updateBanner(){const n=new Date();const h=String(n.getHours()).padStart(2,'0');const mi=String(n.getMinutes()).padStart(2,'0');const ampm=n.getHours()<12?'AM':'PM';document.getElementById('update-date').textContent=`${DL[n.getDay()]} ${n.getDate()} de ${MESES[n.getMonth()]}, ${n.getFullYear()} · ${h}:${mi} ${ampm}`;}
+function startClk(){updateClk();clkInt=setInterval(updateClk,1000);}
+function stopClk(){if(clkInt)clearInterval(clkInt);}
+function updateClk(){const n=new Date();document.getElementById('ci-clk').textContent=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;document.getElementById('ci-dt').textContent=`${DL[n.getDay()]}, ${n.getDate()} de ${MESES[n.getMonth()]} ${n.getFullYear()}`;}
+async function marcar(tipo){
+  const p=PERSONAS[pidx];const hora=horaActual();const fecha=hoy();
+  document.getElementById('err-msg').style.display='none';
+  const ld=document.getElementById('loading');ld.style.display='flex';document.getElementById('loading-msg').textContent=tipo==='entrada'?'Registrando entrada...':'Registrando salida...';
+  let flowOk=false;
+  try{
+    const resp=await fetch(FLOW_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:p.nom,departamento:p.dept,direccion:p.dir||'',tipo,hora,fecha,horaEntrada:tipo==='entrada'?hora:(p.reg[fecha]?p.reg[fecha].e||'':''),horaSalida:tipo==='salida'?hora:''})});
+    flowOk=resp.ok||resp.status===202;
+  }catch(e){flowOk=false;}
+  ld.style.display='none';
+  // Mostrar estado de sincronización con SharePoint
+  const syncEl=document.getElementById('sync-status');
+  if(syncEl){syncEl.textContent=flowOk?'✓ Guardado en SharePoint':'⚠ Guardado local (sin conexión)';syncEl.style.color=flowOk?'var(--green)':'#e67e22';syncEl.style.display='block';}
+
+  if(!p.reg[fecha])p.reg[fecha]={e:'',s:''};if(tipo==='entrada')p.reg[fecha].e=hora;else p.reg[fecha].s=hora;guardarPersonas();
+  const r=p.reg[fecha];const[y,m,d]=fecha.split('-');const fmtF=`${d}/${m}/${y.slice(2)}`;const dias=Object.keys(p.reg).length;
+  document.getElementById('suc-tb').textContent=tipo==='entrada'?'Entrada registrada':'Salida registrada';document.getElementById('suc-t').textContent=tipo==='entrada'?'¡Entrada marcada!':'¡Salida marcada!';document.getElementById('suc-ic').style.background=tipo==='entrada'?'var(--green)':'var(--red)';document.getElementById('suc-hr').textContent=hora;document.getElementById('suc-hr').style.color=tipo==='entrada'?'var(--green)':'var(--red)';document.getElementById('suc-count').textContent=dias;document.getElementById('x-nom').textContent=p.nom;document.getElementById('x-fec').textContent=fmtF;document.getElementById('x-ent').textContent=r.e||'—';const xs=document.getElementById('x-sal');xs.textContent=r.s||'—';xs.style.color=r.s?'#111':'#aaa';show('s-success');
+}
+async function registrar(){
+  const nom=document.getElementById('reg-nom').value.trim();
+  const dept=document.getElementById('reg-dept').value.trim();
+  const cedula=document.getElementById('reg-id').value.trim();
+  if(!nom){alert('Ingresa tu nombre');return;}
+  const nueva={nom,dept:dept||'Sin área',dir:cedula||'',ini:getIni(nom),reg:{}};
+  PERSONAS.unshift(nueva);guardarPersonas();pidx=0;
+  // Registrar persona nueva en la hoja Personas del Excel
+  try{await fetch(FLOW_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',direccion:cedula||'',fecha:hoy(),hora:'',tipo:'persona'})});}catch(e){}
+  abrirCI(0);
+}
+function calPrev(){if(calMes>3)calMes--;renderCal();}function calNext(){if(calMes<4)calMes++;renderCal();}
+function renderCal(){document.getElementById('cal-title').textContent=`${MESES_C[calMes]} ${calAnio}`;const grid=document.getElementById('cal-grid');const p=pidx!==null?PERSONAS[pidx]:null;const hoyStr=hoy();let html=DS.map(d=>`<div class="cal-hdr">${d}</div>`).join('');const first=new Date(calAnio,calMes,1).getDay();const dim=new Date(calAnio,calMes+1,0).getDate();for(let i=0;i<first;i++)html+=`<div class="cd empty"></div>`;for(let d=1;d<=dim;d++){const dt=new Date(calAnio,calMes,d);const key=`${calAnio}-${String(calMes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const isToday=key===hoyStr;const isWk=dt.getDay()===0||dt.getDay()===6;const hasTarea=TAREAS[key]&&TAREAS[key].length>0;const reg=p&&p.reg[key];const isLib=TAREAS[key]&&TAREAS[key][0]&&TAREAS[key][0].toLowerCase().startsWith('libre');const dr=[(reg&&reg.e?'<div class="dot-e"></div>':''),(reg&&reg.s?'<div class="dot-s"></div>':''),(hasTarea&&!isLib?'<div class="task-dot"></div>':'')].join('');const dots=dr?`<div class="dot-row">${dr}</div>`:'';html+=`<div class="cd${isToday?' today':''}${isWk&&!isToday?' wk':''}${isLib&&!isToday?' libre':''}" onclick="tapDay('${key}')"><span>${d}</span>${dots}</div>`;}grid.innerHTML=html;}
+function tapDay(key){const pop=document.getElementById('task-popup');if(activeDay===key){activeDay=null;pop.innerHTML='';renderCal();return;}activeDay=key;renderCal();const tasks=TAREAS[key];if(!tasks||!tasks.length){pop.innerHTML='';return;}const[y,m,d]=key.split('-');const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));pop.innerHTML=`<div class="task-pop"><div class="task-pop-title">&#128197; ${DL[dt.getDay()]} ${parseInt(d)} de ${MESES[parseInt(m)-1]}</div>${tasks.filter(t=>t).map(t=>`<div>&#8226; ${t}</div>`).join('')}</div>`;}
+function selPdf(o){pdfOpt=o;document.getElementById('opt-d').classList.toggle('active',o==='dia');document.getElementById('opt-s').classList.toggle('active',o==='sem');}
+function pdfEncabezado(doc,titulo,subtitulo){doc.setFillColor(17,30,69);doc.rect(0,0,210,28,'F');doc.setFontSize(15);doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.text('IMHPA — Dirección de Climatología',14,11);doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Instituto de Meteorología e Hidrología de Panamá',14,18);doc.text(`Generado: ${new Date().toLocaleString('es-PA')}`,14,24);doc.setFontSize(13);doc.setTextColor(17,30,69);doc.setFont('helvetica','bold');doc.text(titulo,14,37);if(subtitulo){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);doc.text(subtitulo,14,44);}}
+function pdfPie(doc){doc.setFillColor(17,30,69);doc.rect(0,282,210,15,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.text('IMHPA — Dirección de Climatología · Desarrollado por Katherine Bonilla',14,290);doc.text('Pág. 1',196,290);}
+function calcHoras(e,s){const[eh,em]=e.split(':').map(Number);const[sh,sm]=s.split(':').map(Number);const mins=(sh*60+sm)-(eh*60+em);if(mins<0)return '—';return `${Math.floor(mins/60)}h ${mins%60}m`;}
+function genPDF(){
+  const el=document.getElementById('pdf-st');if(pidx===null){el.textContent='Selecciona un usuario primero.';return;}
+  const p=PERSONAS[pidx];const hoyStr=hoy();const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  pdfEncabezado(doc,pdfOpt==='dia'?'REPORTE DIARIO DE ASISTENCIA':'REPORTE SEMANAL DE ASISTENCIA',`Empleado: ${p.nom} · ${p.dept}`);
+  let rows=[];if(pdfOpt==='dia'){const r=p.reg[hoyStr];const[y,m,d]=hoyStr.split('-');rows=[[`${d}/${m}/${y}`,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']];}else{const keys=Object.keys(p.reg).sort().slice(-7);rows=keys.map(k=>{const r=p.reg[k];const[y,m,d]=k.split('-');return[`${d}/${m}/${y}`,r.e||'—',r.s||'—',r.e&&r.s?calcHoras(r.e,r.s):'—'];});if(!rows.length)rows=[['Sin registros','—','—','—']];}
+  doc.autoTable({startY:50,head:[['Fecha','Hora Entrada','Hora Salida','Horas Trabajadas']],body:rows,headStyles:{fillColor:[25,118,210],textColor:255,fontStyle:'bold',fontSize:10},bodyStyles:{fontSize:10},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:3,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:45},1:{cellWidth:45},2:{cellWidth:45},3:{cellWidth:47}},margin:{left:14,right:14}});
+  const fy=doc.lastAutoTable.finalY+8;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,30,69);doc.text(`Total días registrados: ${Object.keys(p.reg).length}`,14,fy);pdfPie(doc);
+  doc.save(`Reporte_${pdfOpt==='dia'?'Diario':'Semanal'}_${p.nom.replace(/ /g,'_')}_${hoyStr}.pdf`);el.textContent=`PDF descargado — ${Object.keys(p.reg).length} días registrados.`;
+}
+function genPDFDirectora(tipo){
+  const el=document.getElementById('dir-pdf-st');const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const hoyStr=hoy();const[y,m,d]=hoyStr.split('-');
+  pdfEncabezado(doc,tipo==='dia'?'REPORTE DIARIO GENERAL — TODO EL PERSONAL':'REPORTE SEMANAL GENERAL — TODO EL PERSONAL',tipo==='dia'?`Fecha: ${d}/${m}/${y}`:`Últimos 7 días`);
+  let rows=[];
+  if(tipo==='dia'){PERSONAS.forEach(p=>{const r=p.reg[hoyStr];rows.push([p.nom,p.dept,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']);});doc.autoTable({startY:50,head:[['Nombre','Departamento','Entrada','Salida','Horas']],body:rows,headStyles:{fillColor:[17,30,69],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:3,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:55},1:{cellWidth:40},2:{cellWidth:28},3:{cellWidth:28},4:{cellWidth:31}},margin:{left:14,right:14}});}
+  else{PERSONAS.forEach(p=>{const keys=Object.keys(p.reg).sort().slice(-7);keys.forEach(k=>{const r=p.reg[k];const[ky,km,kd]=k.split('-');rows.push([p.nom,`${kd}/${km}/${ky}`,r.e||'—',r.s||'—',r.e&&r.s?calcHoras(r.e,r.s):'—']);});});if(!rows.length)rows=[['Sin registros','—','—','—','—']];doc.autoTable({startY:50,head:[['Nombre','Fecha','Entrada','Salida','Horas']],body:rows,headStyles:{fillColor:[17,30,69],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:3,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:55},1:{cellWidth:35},2:{cellWidth:28},3:{cellWidth:28},4:{cellWidth:36}},margin:{left:14,right:14}});}
+  const fy=doc.lastAutoTable.finalY+8;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,30,69);doc.text(`Total personal: ${PERSONAS.length}   Presentes hoy: ${PERSONAS.filter(p=>p.reg[hoyStr]&&p.reg[hoyStr].e).length}`,14,fy);pdfPie(doc);
+  doc.save(`ReporteGeneral_${tipo==='dia'?'Diario':'Semanal'}_${hoyStr}.pdf`);el.textContent=`Reporte general descargado correctamente.`;
+}
+show('s-welcome');
+
+// CONFIG
+const PIN_CONFIG = '321';
+function abrirCfgPin(){
+  document.getElementById('cfg-modal-bg').style.display='flex';
+  document.getElementById('cfg-pin-step').style.display='block';
+  document.getElementById('cfg-form-step').style.display='none';
+  document.getElementById('cfg-pin-input').value='';
+  document.getElementById('cfg-pin-err').style.display='none';
+  setTimeout(()=>document.getElementById('cfg-pin-input').focus(),100);
+}
+function cerrarCfg(){document.getElementById('cfg-modal-bg').style.display='none';}
+function verificarCfgPin(){
+  const v=document.getElementById('cfg-pin-input').value;
+  if(v===PIN_CONFIG){
+    document.getElementById('cfg-pin-step').style.display='none';
+    document.getElementById('cfg-form-step').style.display='block';
+    document.getElementById('cfg-ok').style.display='none';
+    // Load saved values
+    document.getElementById('cfg-email1').value=localStorage.getItem('cfg_email1')||'jsterling@imhpa.gob.pa';
+    document.getElementById('cfg-email2').value=localStorage.getItem('cfg_email2')||'mmoreno@imhpa.gob.pa';
+    document.getElementById('cfg-flowurl').value=localStorage.getItem('cfg_flowurl')||'';
+  } else {
+    document.getElementById('cfg-pin-err').style.display='block';
+    document.getElementById('cfg-pin-input').value='';
+  }
+}
+function guardarCfg(){
+  const e1=document.getElementById('cfg-email1').value.trim();
+  const e2=document.getElementById('cfg-email2').value.trim();
+  const fu=document.getElementById('cfg-flowurl').value.trim();
+  if(e1) localStorage.setItem('cfg_email1', e1);
+  if(e2) localStorage.setItem('cfg_email2', e2);
+  if(fu) localStorage.setItem('cfg_flowurl', fu);
+  document.getElementById('cfg-ok').style.display='block';
+  setTimeout(()=>cerrarCfg(), 1500);
+}
+function getCfgEmail1(){return localStorage.getItem('cfg_email1')||'jsterling@imhpa.gob.pa';}
+function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'mmoreno@imhpa.gob.pa';}
+</script>
+
+<!-- CONFIG BUTTON -->
+<button class="cfg-btn" onclick="abrirCfgPin()" title="Configuración">⚙</button>
+
+<!-- CONFIG MODAL -->
+<div class="cfg-modal-bg" id="cfg-modal-bg">
+  <div class="cfg-modal">
+    <div id="cfg-pin-step">
+      <div class="cfg-title">⚙ Configuración</div>
+      <div class="cfg-sub">Ingresa la clave para acceder</div>
+      <input class="cfg-input" type="password" id="cfg-pin-input" placeholder="Clave" maxlength="10"/>
+      <div id="cfg-pin-err" style="font-size:12px;color:#c0392b;margin-top:.5rem;display:none;">Clave incorrecta</div>
+      <button class="cfg-save" onclick="verificarCfgPin()">Continuar</button>
+      <span class="cfg-cancel" onclick="cerrarCfg()">Cancelar</span>
+    </div>
+    <div id="cfg-form-step" style="display:none;">
+      <div class="cfg-title">⚙ Configuración de correos</div>
+      <div class="cfg-sub">Estos correos recibirán el reporte diario de asistencia</div>
+      <div class="cfg-lbl">Correo 1</div>
+      <input class="cfg-input" type="email" id="cfg-email1" placeholder="correo1@imhpa.gob.pa"/>
+      <div class="cfg-lbl">Correo 2</div>
+      <input class="cfg-input" type="email" id="cfg-email2" placeholder="correo2@imhpa.gob.pa"/>
+      <div class="cfg-lbl">Flow URL (opcional — solo si cambió)</div>
+      <input class="cfg-input" type="text" id="cfg-flowurl" placeholder="https://..."/>
+      <button class="cfg-save" onclick="guardarCfg()">Guardar configuración</button>
+      <div class="cfg-ok" id="cfg-ok">✓ Configuración guardada</div>
+      <span class="cfg-cancel" onclick="cerrarCfg()">Cerrar</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
