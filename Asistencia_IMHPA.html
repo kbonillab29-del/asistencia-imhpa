@@ -572,7 +572,8 @@ async function marcar(tipo){
   const ld=document.getElementById('loading');ld.style.display='flex';document.getElementById('loading-msg').textContent=tipo==='entrada'?'Registrando entrada...':'Registrando salida...';
   let flowOk=false;
   try{
-    const resp=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'marcar',nombre:p.nom,departamento:p.dept,posicion:p.dir||'',tipo,hora,fecha})});
+    const params=new URLSearchParams({accion:'marcar',nombre:p.nom,posicion:p.dir||'',tipo,hora,fecha});
+    const resp=await fetch(API_URL+'?'+params.toString());
     const data=await resp.json();
     flowOk=data.ok===true;
   }catch(e){flowOk=false;}
@@ -593,7 +594,7 @@ async function registrar(){
   const nueva={nom,dept:dept||'Sin área',dir:cedula||'',ini:getIni(nom),reg:{}};
   PERSONAS.unshift(nueva);guardarPersonas();pidx=0;
   // Registrar persona nueva en la hoja Personas del Excel
-  try{await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||'',fecha:hoy()})});}catch(e){}
+  try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||'',fecha:hoy()});await fetch(API_URL+'?'+params.toString());}catch(e){}
   abrirCI(0);
 }
 function calPrev(){if(calMes>3)calMes--;renderCal();}function calNext(){if(calMes<4)calMes++;renderCal();}
