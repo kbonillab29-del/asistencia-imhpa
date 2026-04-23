@@ -636,15 +636,45 @@ function verificarCfgPin(){
 function guardarCfg(){
   const e1=document.getElementById('cfg-email1').value.trim();
   const e2=document.getElementById('cfg-email2').value.trim();
-  const fu=document.getElementById('cfg-flowurl').value.trim();
+  const e3=document.getElementById('cfg-email3').value.trim();
   if(e1) localStorage.setItem('cfg_email1', e1);
   if(e2) localStorage.setItem('cfg_email2', e2);
-  if(fu) localStorage.setItem('cfg_flowurl', fu);
+  if(e3) localStorage.setItem('cfg_email3', e3);
   document.getElementById('cfg-ok').style.display='block';
-  setTimeout(()=>cerrarCfg(), 1500);
+  setTimeout(()=>document.getElementById('cfg-ok').style.display='none', 2000);
 }
-function getCfgEmail1(){return localStorage.getItem('cfg_email1')||'jsterling@imhpa.gob.pa';}
-function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'mmoreno@imhpa.gob.pa';}
+function getCfgEmail1(){return localStorage.getItem('cfg_email1')||'';}
+function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'';}
+function getCfgEmail3(){return localStorage.getItem('cfg_email3')||'';}
+const REPORTE_URL='https://hook.us2.make.com/lhc5abl27my20v82sqqnne1cxlcyr7cd';
+async function enviarReporte(){
+  const btn=document.querySelector('#cfg-form-step button[onclick="enviarReporte()"]');
+  const okEl=document.getElementById('cfg-send-ok');
+  const errEl=document.getElementById('cfg-send-err');
+  okEl.style.display='none'; errEl.style.display='none';
+  btn.textContent='Enviando...'; btn.disabled=true;
+  const hoyStr=hoy();
+  const registros=PERSONAS.map(p=>{
+    const r=p.reg[hoyStr];
+    if(!r) return null;
+    return {nombre:p.nom,posicion:p.dir||'',entrada:r.e||'—',salida:r.s||'—',dept:p.dept};
+  }).filter(Boolean);
+  try{
+    const resp=await fetch(REPORTE_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        fecha:hoyStr,
+        correo1:getCfgEmail1(),
+        correo2:getCfgEmail2(),
+        correo3:getCfgEmail3(),
+        registros
+      })
+    });
+    if(resp.ok||resp.status===200||resp.status===202){
+      okEl.style.display='block';
+    } else { errEl.style.display='block'; }
+  }catch(e){ errEl.style.display='block'; }
+  btn.textContent='📊 Enviar reporte del día'; btn.disabled=false;
+}
 </script>
 
 <!-- CONFIG BUTTON -->
@@ -662,16 +692,22 @@ function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'mmoreno@imhp
       <span class="cfg-cancel" onclick="cerrarCfg()">Cancelar</span>
     </div>
     <div id="cfg-form-step" style="display:none;">
-      <div class="cfg-title">⚙ Configuración de correos</div>
-      <div class="cfg-sub">Estos correos recibirán el reporte diario de asistencia</div>
+      <div class="cfg-title">⚙ Configuración</div>
+      <div class="cfg-sub">Correos que recibirán el reporte de asistencia</div>
       <div class="cfg-lbl">Correo 1</div>
       <input class="cfg-input" type="email" id="cfg-email1" placeholder="correo1@imhpa.gob.pa"/>
       <div class="cfg-lbl">Correo 2</div>
       <input class="cfg-input" type="email" id="cfg-email2" placeholder="correo2@imhpa.gob.pa"/>
-      <div class="cfg-lbl">Flow URL (opcional — solo si cambió)</div>
-      <input class="cfg-input" type="text" id="cfg-flowurl" placeholder="https://..."/>
-      <button class="cfg-save" onclick="guardarCfg()">Guardar configuración</button>
+      <div class="cfg-lbl">Correo 3</div>
+      <input class="cfg-input" type="email" id="cfg-email3" placeholder="correo3@imhpa.gob.pa"/>
+      <button class="cfg-save" onclick="guardarCfg()">Guardar correos</button>
+      <div style="height:1px;background:#eee;margin:.85rem 0;"></div>
+      <div class="cfg-lbl" style="font-weight:600;color:#111E45;">Enviar reporte ahora</div>
+      <div class="cfg-sub" style="margin-bottom:.5rem;">Envía la asistencia del día a los correos configurados</div>
+      <button class="cfg-save" style="background:#1a6b3c;" onclick="enviarReporte()">📊 Enviar reporte del día</button>
       <div class="cfg-ok" id="cfg-ok">✓ Configuración guardada</div>
+      <div id="cfg-send-ok" style="display:none;font-size:12px;font-weight:600;text-align:center;margin-top:.5rem;color:#1a6b3c;">✓ Reporte enviado</div>
+      <div id="cfg-send-err" style="display:none;font-size:12px;font-weight:600;text-align:center;margin-top:.5rem;color:#c0392b;">⚠ Error al enviar</div>
       <span class="cfg-cancel" onclick="cerrarCfg()">Cerrar</span>
     </div>
   </div>
