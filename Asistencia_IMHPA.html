@@ -643,9 +643,9 @@ function verificarCfgPin(){
     document.getElementById('cfg-form-step').style.display='block';
     document.getElementById('cfg-ok').style.display='none';
     // Load saved values
-    document.getElementById('cfg-email1').value=localStorage.getItem('cfg_email1')||'jsterling@imhpa.gob.pa';
-    document.getElementById('cfg-email2').value=localStorage.getItem('cfg_email2')||'mmoreno@imhpa.gob.pa';
-    document.getElementById('cfg-flowurl').value=localStorage.getItem('cfg_flowurl')||'';
+    document.getElementById('cfg-email1').value=localStorage.getItem('cfg_email1')||'';
+    document.getElementById('cfg-email2').value=localStorage.getItem('cfg_email2')||'';
+    document.getElementById('cfg-email3').value=localStorage.getItem('cfg_email3')||'';
   } else {
     document.getElementById('cfg-pin-err').style.display='block';
     document.getElementById('cfg-pin-input').value='';
@@ -670,25 +670,26 @@ async function enviarReporte(){
   const okEl=document.getElementById('cfg-send-ok');
   const errEl=document.getElementById('cfg-send-err');
   okEl.style.display='none'; errEl.style.display='none';
+  const correo1=document.getElementById('cfg-email1').value.trim();
+  const correo2=document.getElementById('cfg-email2').value.trim();
+  const correo3=document.getElementById('cfg-email3').value.trim();
+  const destinatarios=[correo1,correo2,correo3].filter(e=>e!=='');
+  if(!destinatarios.length){alert('Por favor ingresa al menos un correo en configuración.');return;}
   btn.textContent='Enviando...'; btn.disabled=true;
   const hoyStr=hoy();
-  const registros=PERSONAS.map(p=>{
-    const r=p.reg[hoyStr];
-    if(!r) return null;
-    return {nombre:p.nom,posicion:p.dir||'',entrada:r.e||'—',salida:r.s||'—',dept:p.dept};
-  }).filter(Boolean);
   try{
-    const resp=await fetch(REPORTE_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    const resp=await fetch(REPORTE_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        fecha:hoyStr,
-        correo1:getCfgEmail1(),
-        correo2:getCfgEmail2(),
-        correo3:getCfgEmail3(),
-        registros
+        to: destinatarios.join(', '),
+        asunto: 'Reporte de Asistencia — Dirección de Climatología IMHPA',
+        fecha: hoyStr
       })
     });
     if(resp.ok||resp.status===200||resp.status===202){
       okEl.style.display='block';
+      okEl.textContent='✓ Reporte enviado a '+destinatarios.length+' correo(s)';
     } else { errEl.style.display='block'; }
   }catch(e){ errEl.style.display='block'; }
   btn.textContent='📊 Enviar reporte del día'; btn.disabled=false;
