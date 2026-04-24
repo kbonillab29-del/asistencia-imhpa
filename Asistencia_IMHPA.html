@@ -666,33 +666,30 @@ function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'';}
 function getCfgEmail3(){return localStorage.getItem('cfg_email3')||'';}
 const REPORTE_URL='https://hook.us2.make.com/lhc5abl27my20v82sqqnne1cxlcyr7cd';
 async function enviarReporte(){
-  const btn=document.querySelector('#cfg-form-step button[onclick="enviarReporte()"]');
+  const btn=document.querySelector('button[onclick="enviarReporte()"]');
   const okEl=document.getElementById('cfg-send-ok');
-  const errEl=document.getElementById('cfg-send-err');
-  okEl.style.display='none'; errEl.style.display='none';
-  const correo1=document.getElementById('cfg-email1').value.trim();
-  const correo2=document.getElementById('cfg-email2').value.trim();
-  const correo3=document.getElementById('cfg-email3').value.trim();
-  const destinatarios=[correo1,correo2,correo3].filter(e=>e!=='');
-  if(!destinatarios.length){alert('Por favor ingresa al menos un correo en configuración.');return;}
-  btn.textContent='Enviando...'; btn.disabled=true;
-  const hoyStr=hoy();
+  const c1=document.getElementById('cfg-email1').value.trim();
+  const c2=document.getElementById('cfg-email2').value.trim();
+  const c3=document.getElementById('cfg-email3').value.trim();
+  const lista=[c1,c2,c3].filter(e=>e!=='').join(', ');
+  if(!lista){alert('Escribe al menos un correo.');return;}
+  btn.innerText='Enviando...'; btn.disabled=true;
   try{
     const resp=await fetch(REPORTE_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        to: destinatarios.join(', '),
-        asunto: 'Reporte de Asistencia — Dirección de Climatología IMHPA',
-        fecha: hoyStr
+        to: lista,
+        asunto: 'Reporte de Asistencia IMHPA',
+        solicitado_por: 'Dirección de Climatología'
       })
     });
-    if(resp.ok||resp.status===200||resp.status===202){
+    if(resp.ok){
       okEl.style.display='block';
-      okEl.textContent='✓ Reporte enviado a '+destinatarios.length+' correo(s)';
-    } else { errEl.style.display='block'; }
-  }catch(e){ errEl.style.display='block'; }
-  btn.textContent='📊 Enviar reporte del día'; btn.disabled=false;
+      setTimeout(()=>okEl.style.display='none',3000);
+    }
+  }catch(e){alert('Error de conexión con Make');}
+  btn.innerText='📊 Enviar reporte del día'; btn.disabled=false;
 }
 </script>
 
