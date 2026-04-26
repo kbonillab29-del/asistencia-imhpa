@@ -585,7 +585,13 @@ function borrarRegistro(tipo){
 function resetearTodo(){
   if(!confirm('¿Estás segura? Esto borrará TODAS las personas y registros. Todos tendrán que registrarse de nuevo desde cero.'))return;
   if(!confirm('Segunda confirmación: ¿Borrar absolutamente todo?'))return;
-  PERSONAS=[];guardarPersonas();renderDirectora();
+  PERSONAS=[];
+  localStorage.removeItem('imhpa_personas');
+  localStorage.removeItem('cfg_email1');
+  localStorage.removeItem('cfg_email2');
+  localStorage.removeItem('cfg_email3');
+  guardarPersonas();
+  renderDirectora();
   alert('Todo borrado. Ahora todos pueden registrarse desde cero.');
 }
 function renderDirectora(){
@@ -750,23 +756,19 @@ function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'';}
 function getCfgEmail3(){return localStorage.getItem('cfg_email3')||'';}
 const SHEETS_LINK='https://docs.google.com/spreadsheets/d/1vyyk-Qbyu_8AUxQMw8_6nHl0OLFkLKfrcpYDAFW9y_M/edit';
 
-function cfgGenExcel(){
+function cfgGenCSV(){
   cerrarCfg();
-  // Use existing genExcelDirectora or build one
-  const hoyStr=hoy();
-  const[y,m,d]=hoyStr.split('-');
-  const fecha=d+'/'+m+'/'+y;
-  let csv='Nombre,Fecha,HoraEntrada,HoraSalida,Posicion\n';
+  const hoyStr=hoy();const[y,m,d]=hoyStr.split('-');const fecha=d+'/'+m+'/'+y;
+  let csv='Nombre,Departamento,Posicion,Fecha,HoraEntrada,HoraSalida\n';
   PERSONAS.forEach(p=>{
     const r=p.reg[hoyStr];
     if(r&&(r.e||r.s)){
-      csv+=p.nom+','+fecha+','+(r.e||'')+ ','+(r.s||'')+','+(p.dir||'')+'\n';
+      csv+='"'+p.nom+'","'+(p.dept||'')+'","'+(p.dir||'')+'","'+fecha+'","'+(r.e||'')+'","'+(r.s||'')+'"\n';
     }
   });
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;a.download='Asistencia_IMHPA_'+hoyStr+'.csv';
+  const a=document.createElement('a');a.href=url;a.download='Asistencia_IMHPA_'+hoyStr+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
@@ -776,21 +778,21 @@ function cfgGenPDF(){
 }
 
 function cfgCopiarMensaje(){
-  const hoyStr=hoy();
-  const[y,m,d]=hoyStr.split('-');
-  const fecha=d+'/'+m+'/'+y;
-  let msg='Registro de Asistencia — Dirección de Climatología IMHPA\nFecha: '+fecha+'\n\n';
-  PERSONAS.forEach(p=>{
-    const r=p.reg[hoyStr];
-    if(r&&(r.e||r.s)){
-      msg+=p.nom+' (Pos. '+( p.dir||'—')+'): Entrada '+( r.e||'—')+' / Salida '+(r.s||'—')+'\n';
-    }
-  });
-  msg+='\nVer registro completo: '+SHEETS_LINK;
+  const n=new Date();
+  const MESES_N=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const DL_N=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const fechaLarga=DL_N[n.getDay()]+' '+n.getDate()+' de '+MESES_N[n.getMonth()]+' de '+n.getFullYear();
+  const msg='Buenas tardes, les informo que el personal de la Dirección de Climatología realizó teletrabajo el día de hoy, '+fechaLarga+'. Adjunto registro de asistencia para su referencia.';
+  const preview=document.getElementById('cfg-msg-preview');
+  preview.textContent=msg;preview.style.display='block';
   navigator.clipboard.writeText(msg).then(()=>{
     document.getElementById('cfg-copy-ok').style.display='block';
-    setTimeout(()=>document.getElementById('cfg-copy-ok').style.display='none',2500);
-  }).catch(()=>alert('No se pudo copiar. Intenta de nuevo.'));
+    setTimeout(()=>document.getElementById('cfg-copy-ok').style.display='none',3000);
+  }).catch(()=>{
+    const range=document.createRange();range.selectNode(preview);
+    window.getSelection().removeAllRanges();window.getSelection().addRange(range);
+    alert('Selecciona el texto y copia manualmente (Ctrl+C).');
+  });
 }
 
 async function enviarReporte(){
@@ -854,21 +856,18 @@ async function enviarReporte(){
     </div>
     <div id="cfg-form-step" style="display:none;">
       <div class="cfg-title">⚙ Configuración</div>
-      <div class="cfg-sub">Correos que recibirán el reporte de asistencia</div>
-      <div class="cfg-lbl">Correo 1</div>
-      <input class="cfg-input" type="email" id="cfg-email1" placeholder="correo1@imhpa.gob.pa"/>
-      <div class="cfg-lbl">Correo 2</div>
-      <input class="cfg-input" type="email" id="cfg-email2" placeholder="correo2@imhpa.gob.pa"/>
-      <div class="cfg-lbl">Correo 3</div>
-      <input class="cfg-input" type="email" id="cfg-email3" placeholder="correo3@imhpa.gob.pa"/>
-      <button class="cfg-save" onclick="guardarCfg()">Guardar correos</button>
+      <div class="cfg-sub">Dirección de Climatología · IMHPA</div>
+      <div style="height:1px;background:#eee;margin:.75rem 0;"></div>
+      <div class="cfg-lbl" style="font-weight:600;color:#111E45;">Descargar reportes del día</div>
+      <button class="cfg-save" style="margin-top:.75rem;" onclick="cfgGenPDF()">📄 Descargar PDF — asistencia del día</button>
+      <button class="cfg-save" style="background:#1a6b3c;margin-top:.5rem;" onclick="cfgGenCSV()">📊 Descargar tabla Excel (CSV) del día</button>
       <div style="height:1px;background:#eee;margin:.85rem 0;"></div>
-      <div class="cfg-lbl" style="font-weight:600;color:#111E45;">Enviar reporte ahora</div>
-      <div class="cfg-sub" style="margin-bottom:.5rem;">Envía la asistencia del día a los correos configurados</div>
-      <button class="cfg-save" style="background:#1a6b3c;" onclick="enviarReporte()">📊 Enviar reporte del día</button>
-      <div class="cfg-ok" id="cfg-ok">✓ Configuración guardada</div>
-      <div id="cfg-send-ok" style="display:none;font-size:12px;font-weight:600;text-align:center;margin-top:.5rem;color:#1a6b3c;">✓ Reporte enviado</div>
-      <div id="cfg-send-err" style="display:none;font-size:12px;font-weight:600;text-align:center;margin-top:.5rem;color:#c0392b;">⚠ Error al enviar</div>
+      <div class="cfg-lbl" style="font-weight:600;color:#111E45;">Mensaje de teletrabajo</div>
+      <div class="cfg-sub" style="margin-bottom:.5rem;">Copia el mensaje listo para enviar a la Dirección</div>
+      <button class="cfg-save" style="background:#1976D2;margin-top:.1rem;" onclick="cfgCopiarMensaje()">📋 Copiar mensaje de teletrabajo</button>
+      <div id="cfg-copy-ok" style="display:none;font-size:12px;font-weight:600;text-align:center;margin-top:.5rem;color:#1a6b3c;">✓ Mensaje copiado al portapapeles</div>
+      <div id="cfg-msg-preview" style="display:none;background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:.65rem .75rem;font-size:11px;color:#333;margin-top:.5rem;line-height:1.6;white-space:pre-wrap;max-height:160px;overflow-y:auto;"></div>
+      <div class="cfg-ok" id="cfg-ok">✓ Listo</div>
       <span class="cfg-cancel" onclick="cerrarCfg()">Cerrar</span>
     </div>
   </div>
