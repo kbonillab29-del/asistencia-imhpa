@@ -215,6 +215,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* PIN CONFIG */
 .cfg-pin-step{display:block;}.cfg-form-step{display:none;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 <div class="app-layout">
@@ -290,7 +291,7 @@ sincronizarPersonas();setSbActive(this)">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                 Registrarme por primera vez
               </button>
-              <button class="btn-dir-w" onclick="abrirPin()">Área de la Directora</button>
+              <button class="btn-dir-w" onclick="show('s-directora')">Área de la Directora</button>
             </div>
           </div>
         </div>
@@ -511,7 +512,7 @@ function show(id){
 }
 function abrirPin(){document.getElementById('pin-modal').style.display='flex';document.getElementById('pin-input').value='';document.getElementById('pin-err').style.display='none';setTimeout(()=>document.getElementById('pin-input').focus(),100);}
 function cerrarPin(){document.getElementById('pin-modal').style.display='none';}
-function verificarPin(){const v=document.getElementById('pin-input').value;if(v===PIN_DIRECTORA){cerrarPin();show('s-directora');}else{document.getElementById('pin-err').style.display='block';document.getElementById('pin-input').value='';}}
+function verificarPin(){cerrarPin();show('s-directora');}
 function borrarMiRegistro(tipo){
   if(pidx===null)return;
   const p=PERSONAS[pidx];const hoyStr=hoy();
@@ -664,31 +665,54 @@ function guardarCfg(){
 function getCfgEmail1(){return localStorage.getItem('cfg_email1')||'';}
 function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'';}
 function getCfgEmail3(){return localStorage.getItem('cfg_email3')||'';}
-const REPORTE_URL='https://hook.us2.make.com/lhc5abl27my20v82sqqnne1cxlcyr7cd';
+// EmailJS config
+const EJS_SERVICE='imhpa_service';
+const EJS_TEMPLATE='template_zsetc1r';
+const EJS_KEY='L8kn-WDe4fKoI62oB';
+const SHEETS_LINK='https://docs.google.com/spreadsheets/d/1vyyk-Qbyu_8AUxQMw8_6nHl0OLFkLKfrcpYDAFW9y_M/edit';
+emailjs.init(EJS_KEY);
+
 async function enviarReporte(){
   const btn=document.querySelector('button[onclick="enviarReporte()"]');
   const okEl=document.getElementById('cfg-send-ok');
   const c1=document.getElementById('cfg-email1').value.trim();
   const c2=document.getElementById('cfg-email2').value.trim();
   const c3=document.getElementById('cfg-email3').value.trim();
-  const lista=[c1,c2,c3].filter(e=>e!=='').join(', ');
-  if(!lista){alert('Escribe al menos un correo.');return;}
+  const destinatarios=[c1,c2,c3].filter(e=>e!=='');
+  if(!destinatarios.length){alert('Escribe al menos un correo.');return;}
   btn.innerText='Enviando...'; btn.disabled=true;
-  try{
-    const resp=await fetch(REPORTE_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        to: lista,
-        asunto: 'Reporte de Asistencia IMHPA',
-        solicitado_por: 'Dirección de Climatología'
-      })
-    });
-    if(resp.ok){
-      okEl.style.display='block';
-      setTimeout(()=>okEl.style.display='none',3000);
-    }
-  }catch(e){alert('Error de conexión con Make');}
+  okEl.style.display='none';
+
+  const hoyStr=hoy();
+  // Build HTML table from today registros
+  const filasDia=PERSONAS.map(p=>{
+    const r=p.reg[hoyStr];
+    if(!r&&!r) return null;
+    if(!p.reg[hoyStr]) return null;
+    return '<tr><td style="padding:8px;border-bottom:1px solid #eee;">'+p.nom+'</td><td style="padding:8px;border-bottom:1px solid #eee;">'+( p.dir||'—')+'</td><td style="padding:8px;border-bottom:1px solid #eee;color:#1a6b3c;">'+(p.reg[hoyStr].e||'—')+'</td><td style="padding:8px;border-bottom:1px solid #eee;color:#c0392b;">'+(p.reg[hoyStr].s||'—')+'</td></tr>';
+  }).filter(Boolean).join('');
+
+  const tabla='<table style="width:100%;border-collapse:collapse;"><tr style="background:#111E45;color:#fff;"><th style="padding:8px;text-align:left;">Nombre</th><th style="padding:8px;text-align:left;">Posición</th><th style="padding:8px;text-align:left;">Entrada</th><th style="padding:8px;text-align:left;">Salida</th></tr>'+filasDia+'</table><br><a href="'+SHEETS_LINK+'" style="color:#1976D2;">📊 Ver registro completo en Google Sheets</a>';
+
+  let enviados=0;
+  for(const correo of destinatarios){
+    try{
+      await emailjs.send(EJS_SERVICE, EJS_TEMPLATE, {
+        to: correo,
+        fecha: hoyStr,
+        mensaje: tabla||'No hay registros para hoy.'
+      });
+      enviados++;
+    }catch(err){console.error('Error enviando a '+correo, err);}
+  }
+
+  if(enviados>0){
+    okEl.textContent='✓ Reporte enviado a '+enviados+' correo(s)';
+    okEl.style.display='block';
+    setTimeout(()=>okEl.style.display='none',4000);
+  } else {
+    alert('Error al enviar. Verifica los correos e intenta de nuevo.');
+  }
   btn.innerText='📊 Enviar reporte del día'; btn.disabled=false;
 }
 </script>
