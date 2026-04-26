@@ -215,7 +215,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* PIN CONFIG */
 .cfg-pin-step{display:block;}.cfg-form-step{display:none;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 <div class="app-layout">
@@ -383,11 +382,13 @@ sincronizarPersonas();setSbActive(this)">
             <span><span class="leg-dot" style="background:var(--dark)"></span>Hoy</span>
           </div>
         </div>
-        <div class="sec-lbl">Mi reporte de asistencia</div>
+        <div class="sec-lbl">Mi asistencia — Última semana</div>
         <div class="pdf-wrap">
+          <div id="semana-vista" style="background:#f8f9fa;border-radius:10px;border:1px solid #eee;padding:.75rem .9rem;margin-bottom:.85rem;font-size:12px;color:#333;line-height:1.8;"></div>
+          <div class="sec-lbl" style="padding-left:0;border-top:none;margin-bottom:.5rem;padding-top:0;">Descargar mi reporte en PDF</div>
           <div class="pdf-opts">
-            <div class="pdf-opt active" id="opt-d" onclick="selPdf('dia')">Reporte diario</div>
-            <div class="pdf-opt" id="opt-s" onclick="selPdf('sem')">Reporte semanal</div>
+            <div class="pdf-opt active" id="opt-c" onclick="selPdf('completo')">Historial completo</div>
+            <div class="pdf-opt" id="opt-s" onclick="selPdf('sem')">Última semana</div>
           </div>
           <button class="btn-pdf" onclick="genPDF()">&#8659; Descargar mi PDF</button>
           <div class="pdf-note" id="pdf-st"></div>
@@ -494,8 +495,47 @@ async function sincronizarPersonas(){
     }
   }catch(e){}
 }
-let pidx=null,calMes=3,calAnio=2026,pdfOpt='dia',clkInt=null,activeDay=null;
-const TAREAS={'2026-04-06':['Procesamiento de Datos','Solicitudes pendientes','ES: Inicio de Práctica'],'2026-04-07':['JB: Curso WRF','AL/KB: Reunión Natura'],'2026-04-08':['JB: Curso WRF','Preparativos de pronóstico'],'2026-04-09':['Discusión de pronóstico','JB: Curso WRF'],'2026-04-10':['Discusión de pronóstico','JB: Curso WRF','Todas: grabación vídeo'],'2026-04-13':['Procesamiento de Datos','ED/VB/JB: presentación MJJ','Preparación para las MTAs'],'2026-04-14':['IJ/NG/MD/KB/YA: Deportivo','ED/VB: Foro Regional'],'2026-04-15':['RC: Boletín climático','KB/NG/RC: Hechos del Clima','ED/VB: Foro Regional','Revisión del calendario'],'2026-04-16':['RC: Grabar en Malek','AL: Reunión Natura','ED/VB: Foro Regional'],'2026-04-17':['RC: Grabar en Malek','VB: presentar CND','JB/NG: publicar Hechos del Clima'],'2026-04-20':['Procesamiento de Datos','Preparación para las MTAs'],'2026-04-21':['JB/NG: Publicar vídeo y boletín','VB/IJ: MTA Bocas del Toro'],'2026-04-22':['LG/AL: Conferencia de Prensa','Aniversario IMHPA','VB/IJ: MTA Chiriquí'],'2026-04-23':['Revisión del calendario','ED/JB/AL: Curso de ECC IMHPA'],'2026-04-27':['Procesamiento de Datos','Solicitudes pendientes'],'2026-05-01':['Libre — Día del trabajo'],'2026-05-05':['ED/YA: MTA Los Santos','Revisión del calendario'],'2026-05-06':['ED/YA: MTA Herrera','Foro CONEP David'],'2026-05-07':['ED/YA: MTA Veraguas','NG: publicar boletín en CW'],'2026-05-08':['ED/YA: MTA Coclé','JB/NG/VA: MTA Panamá Oeste'],'2026-05-11':['Procesamiento de Datos','JB/MD/VA: MTA Colón'],'2026-05-12':['RC/KB: MTA Chepo'],'2026-05-13':['RC/KB: MTA Darién'],'2026-05-15':['NG: Publicar lluvia mes anterior','KB/Todas: Curso Digimet'],'2026-05-19':['Discusión de pronóstico'],'2026-05-20':['Discusión de pronóstico'],'2026-05-21':['JB/NG: publicar Hechos del Clima'],'2026-05-22':['RC: Grabar en Colón Centro','ED/JB: Entregar el IPO'],'2026-05-27':['JB/NG: Publicar vídeo'],'2026-05-29':['Revisión del calendario']};
+let pidx=null,calMes=3,calAnio=2026,pdfOpt='completo',clkInt=null,activeDay=null;
+const TAREAS={
+  // === ABRIL 2026 (desde Excel 26_4) ===
+  '2026-04-02':['AL: ppt congreso arroz','ED comp'],
+  '2026-04-03':['NG: publicar boletín en CW','ED comp'],
+  '2026-04-06':['Procesamiento de Datos','Solicitudes pendientes','DOR: Recolección de datos','ES: Inicio de Práctica'],
+  '2026-04-07':['JB: Curso WRF','AL/KB: 1:30 Reunión Natura','AL: 9 Reunión MiAmbiente','Todas: Examen final','VA/ES: Investigación ECC','VB/IJ/AL: Reunión Mida'],
+  '2026-04-08':['JB: Curso WRF','AL: cotizaciones taller ECC','Preparativos de pronóstico','VA/ES: Investigación ECC'],
+  '2026-04-09':['Discusión de pronóstico','JB: Curso WRF','VB/ED: 8AM Reunión IH Canta y BID','Preparativos de pronóstico','MD/IJ: Actualizar AA - mapas chirps','AL: Reunión OMM*','VA/ES: Investigación ECC'],
+  '2026-04-10':['Discusión de pronóstico','JB: Curso WRF','Todas: grabación vídeo','NG: Publicar lluvia mes anterior','Reunión Post-Foro y Revisión del calendario','JB: Validación para discusión','AL: CND','VA/ES: Investigación ECC'],
+  '2026-04-13':['Procesamiento de Datos','Solicitudes pendientes','ED/VB/JB: presentación MJJ','Preparación para las MTAs'],
+  '2026-04-14':['IJ/NG/MD/KB/YA: Deportivo','ED/VB: Foro Regional','RC: guion para vídeo','VB/AL: Escritura Atlas'],
+  '2026-04-15':['RC: Boletín climático','KB/NG/RC: Hechos del Clima','ED/VB: Foro Regional','Aniversario IMHPA','VB/AL: Escritura Atlas','MD: Taller Cotea','VB/YA/KB/JB: Reunión BYOND IT'],
+  '2026-04-16':['RC: Grabar en Malek','AL: Reunión Natura','ED/VB: Foro Regional','VB/AL: Escritura Atlas','MD: Taller Cotea'],
+  '2026-04-17':['RC: Grabar en Malek','MD/VB: Reunión Antai','AL: presentar CND','JB/NG: publicar Hechos del Clima','Preparación para las MTAs'],
+  '2026-04-20':['Procesamiento de Datos','Solicitudes pendientes','Preparación para las MTAs'],
+  '2026-04-21':['JB/NG: Publicar vídeo y boletín','VB/IJ: MTA Bocas del Toro','JB: Curso Byond IT','AL: presentación YaesYa','*ED/MD/NG/JB/KB: OpenData'],
+  '2026-04-22':['LG/AL: Conferencia de Prensa','VB/IJ: MTA Chiriquí','JB: Curso Byond IT','*ED/MD/NG/JB/KB: OpenData'],
+  '2026-04-23':['Revisión del calendario','ED/JB/AL/VA/ES: Curso de ECC IMHPA y Reunión Shoji UTP','*ED/MD/NG/JB/KB: OpenData'],
+  '2026-04-24':['*ED/MD/NG/JB/KB: OpenData'],
+  '2026-04-27':['Procesamiento de Datos','Solicitudes pendientes','Preparación para las MTAs','RC: Boletín climático'],
+  // === MAYO 2026 (desde Excel 26_5) ===
+  '2026-05-01':['Libre — Día del trabajo'],
+  '2026-05-04':['Procesamiento de Datos','Solicitudes pendientes'],
+  '2026-05-05':['ED/YA: MTA Los Santos','Revisión del calendario'],
+  '2026-05-06':['ED/YA: MTA Herrera','Foro CONEP David'],
+  '2026-05-07':['ED/YA: MTA Veraguas','NG: publicar boletín en CW'],
+  '2026-05-08':['ED/YA: MTA Coclé','JB/NG/VA/ES: MTA Panamá Oeste'],
+  '2026-05-11':['Procesamiento de Datos','Solicitudes pendientes','JB/MD/VA: MTA Colón'],
+  '2026-05-12':['RC/KB: MTA Chepo'],
+  '2026-05-13':['RC/KB: MTA Darién'],
+  '2026-05-15':['NG: Publicar lluvia mes anterior','KB/Todas: Curso Digimet'],
+  '2026-05-18':['Procesamiento de Datos','Solicitudes pendientes'],
+  '2026-05-19':['Discusión de pronóstico'],
+  '2026-05-20':['Discusión de pronóstico'],
+  '2026-05-21':['JB/NG: publicar Hechos del Clima'],
+  '2026-05-22':['RC: Grabar en Colón Centro','ED/JB: Entregar el IPO'],
+  '2026-05-25':['Procesamiento de Datos','Solicitudes pendientes'],
+  '2026-05-26':['JB/NG: Publicar vídeo'],
+  '2026-05-28':['Revisión del calendario'],
+};
 window.addEventListener('DOMContentLoaded',()=>{
   const sc=document.getElementById('stars');
   for(let i=0;i<30;i++){const d=document.createElement('div');d.className='star';const sz=Math.random()*2+1;d.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;opacity:${Math.random()*.6+.2};position:absolute;background:#fff;border-radius:50%`;sc.appendChild(d);}
@@ -506,7 +546,7 @@ function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(id==='s-search'){renderLista('');document.getElementById('s-input').value='';}
-  if(id==='s-checkin'){startClk();renderCal();renderHist();updateBanner();}
+  if(id==='s-checkin'){startClk();renderCal();renderHist();renderSemanaVista();updateBanner();}
   if(id==='s-directora')renderDirectora();
   else stopClk();
 }
@@ -598,21 +638,64 @@ async function registrar(){
   try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||'',fecha:hoy()});await fetch(API_URL+'?'+params.toString());}catch(e){}
   abrirCI(0);
 }
-function calPrev(){if(calMes>3)calMes--;renderCal();}function calNext(){if(calMes<4)calMes++;renderCal();}
+function calPrev(){if(calMes>3){calMes--;}else if(calMes===3&&calAnio>2026){calAnio--;calMes=11;}renderCal();}function calNext(){if(calMes<4){calMes++;}else if(calMes===4){calMes=5;}renderCal();}
 function renderCal(){document.getElementById('cal-title').textContent=`${MESES_C[calMes]} ${calAnio}`;const grid=document.getElementById('cal-grid');const p=pidx!==null?PERSONAS[pidx]:null;const hoyStr=hoy();let html=DS.map(d=>`<div class="cal-hdr">${d}</div>`).join('');const first=new Date(calAnio,calMes,1).getDay();const dim=new Date(calAnio,calMes+1,0).getDate();for(let i=0;i<first;i++)html+=`<div class="cd empty"></div>`;for(let d=1;d<=dim;d++){const dt=new Date(calAnio,calMes,d);const key=`${calAnio}-${String(calMes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const isToday=key===hoyStr;const isWk=dt.getDay()===0||dt.getDay()===6;const hasTarea=TAREAS[key]&&TAREAS[key].length>0;const reg=p&&p.reg[key];const isLib=TAREAS[key]&&TAREAS[key][0]&&TAREAS[key][0].toLowerCase().startsWith('libre');const dr=[(reg&&reg.e?'<div class="dot-e"></div>':''),(reg&&reg.s?'<div class="dot-s"></div>':''),(hasTarea&&!isLib?'<div class="task-dot"></div>':'')].join('');const dots=dr?`<div class="dot-row">${dr}</div>`:'';html+=`<div class="cd${isToday?' today':''}${isWk&&!isToday?' wk':''}${isLib&&!isToday?' libre':''}" onclick="tapDay('${key}')"><span>${d}</span>${dots}</div>`;}grid.innerHTML=html;}
 function tapDay(key){const pop=document.getElementById('task-popup');if(activeDay===key){activeDay=null;pop.innerHTML='';renderCal();return;}activeDay=key;renderCal();const tasks=TAREAS[key];if(!tasks||!tasks.length){pop.innerHTML='';return;}const[y,m,d]=key.split('-');const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));pop.innerHTML=`<div class="task-pop"><div class="task-pop-title">&#128197; ${DL[dt.getDay()]} ${parseInt(d)} de ${MESES[parseInt(m)-1]}</div>${tasks.filter(t=>t).map(t=>`<div>&#8226; ${t}</div>`).join('')}</div>`;}
-function selPdf(o){pdfOpt=o;document.getElementById('opt-d').classList.toggle('active',o==='dia');document.getElementById('opt-s').classList.toggle('active',o==='sem');}
+function selPdf(o){pdfOpt=o;document.getElementById('opt-c').classList.toggle('active',o==='completo');document.getElementById('opt-s').classList.toggle('active',o==='sem');}
 function pdfEncabezado(doc,titulo,subtitulo){doc.setFillColor(17,30,69);doc.rect(0,0,210,28,'F');doc.setFontSize(15);doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.text('IMHPA — Dirección de Climatología',14,11);doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Instituto de Meteorología e Hidrología de Panamá',14,18);doc.text(`Generado: ${new Date().toLocaleString('es-PA')}`,14,24);doc.setFontSize(13);doc.setTextColor(17,30,69);doc.setFont('helvetica','bold');doc.text(titulo,14,37);if(subtitulo){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);doc.text(subtitulo,14,44);}}
 function pdfPie(doc){doc.setFillColor(17,30,69);doc.rect(0,282,210,15,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.text('IMHPA — Dirección de Climatología · Desarrollado por Katherine Bonilla',14,290);doc.text('Pág. 1',196,290);}
 function calcHoras(e,s){const[eh,em]=e.split(':').map(Number);const[sh,sm]=s.split(':').map(Number);const mins=(sh*60+sm)-(eh*60+em);if(mins<0)return '—';return `${Math.floor(mins/60)}h ${mins%60}m`;}
+function renderSemanaVista(){
+  const el=document.getElementById('semana-vista');if(!el||pidx===null)return;
+  const p=PERSONAS[pidx];
+  // Get last 7 calendar days
+  const dias=[];const hoyDt=new Date();
+  for(let i=6;i>=0;i--){const d=new Date(hoyDt);d.setDate(d.getDate()-i);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;dias.push({k,d});}
+  const rows=dias.map(({k,d})=>{
+    const r=p.reg[k];const dN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()];
+    const fmtD=`${dN} ${d.getDate()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    const esHoy=k===hoy()?'<span style="background:#111E45;color:#fff;font-size:10px;padding:1px 5px;border-radius:10px;margin-left:4px">hoy</span>':'';
+    if(!r||(!r.e&&!r.s)){return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0"><span style="color:#999">${fmtD}${esHoy}</span><span style="color:#bbb">— Sin marcar</span></div>`;}
+    return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0"><span style="color:#333;font-weight:500">${fmtD}${esHoy}</span><span>${r.e?'<span style="color:var(--green)">▶ '+r.e+'</span>':''}${r.e&&r.s?' · ':''}${r.s?'<span style="color:var(--red)">■ '+r.s+'</span>':''}</span></div>`;
+  }).join('');
+  el.innerHTML=`<div style="font-size:11px;font-weight:600;color:var(--dark);margin-bottom:6px">Últimos 7 días — ${p.nom}</div>${rows}`;
+}
 function genPDF(){
   const el=document.getElementById('pdf-st');if(pidx===null){el.textContent='Selecciona un usuario primero.';return;}
   const p=PERSONAS[pidx];const hoyStr=hoy();const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  pdfEncabezado(doc,pdfOpt==='dia'?'REPORTE DIARIO DE ASISTENCIA':'REPORTE SEMANAL DE ASISTENCIA',`Empleado: ${p.nom} · ${p.dept}`);
-  let rows=[];if(pdfOpt==='dia'){const r=p.reg[hoyStr];const[y,m,d]=hoyStr.split('-');rows=[[`${d}/${m}/${y}`,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']];}else{const keys=Object.keys(p.reg).sort().slice(-7);rows=keys.map(k=>{const r=p.reg[k];const[y,m,d]=k.split('-');return[`${d}/${m}/${y}`,r.e||'—',r.s||'—',r.e&&r.s?calcHoras(r.e,r.s):'—'];});if(!rows.length)rows=[['Sin registros','—','—','—']];}
-  doc.autoTable({startY:50,head:[['Fecha','Hora Entrada','Hora Salida','Horas Trabajadas']],body:rows,headStyles:{fillColor:[25,118,210],textColor:255,fontStyle:'bold',fontSize:10},bodyStyles:{fontSize:10},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:3,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:45},1:{cellWidth:45},2:{cellWidth:45},3:{cellWidth:47}},margin:{left:14,right:14}});
-  const fy=doc.lastAutoTable.finalY+8;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,30,69);doc.text(`Total días registrados: ${Object.keys(p.reg).length}`,14,fy);pdfPie(doc);
-  doc.save(`Reporte_${pdfOpt==='dia'?'Diario':'Semanal'}_${p.nom.replace(/ /g,'_')}_${hoyStr}.pdf`);el.textContent=`PDF descargado — ${Object.keys(p.reg).length} días registrados.`;
+  const titulo=pdfOpt==='completo'?'MI HISTORIAL COMPLETO DE ASISTENCIA':'REPORTE SEMANAL DE ASISTENCIA';
+  pdfEncabezado(doc,titulo,`Empleado: ${p.nom} · ${p.dept}`);
+  let rows=[];
+  if(pdfOpt==='completo'){
+    // All days from first to last registered
+    const keys=Object.keys(p.reg).sort();
+    if(!keys.length){rows=[['Sin registros','—','—','—']];}
+    else{
+      // Fill every calendar day from first to last
+      const firstDate=new Date(keys[0]);const lastDate=new Date(keys[keys.length-1]);
+      for(let dt=new Date(firstDate);dt<=lastDate;dt.setDate(dt.getDate()+1)){
+        const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+        const wd=dt.getDay();if(wd===0||wd===6)continue;// skip weekends
+        const r=p.reg[k];const[y,m,d]=k.split('-');
+        const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+        rows.push([`${dias[wd]} ${d}/${m}/${y}`,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']);
+      }
+    }
+  } else {
+    const keys=Object.keys(p.reg).sort().slice(-7);
+    rows=keys.map(k=>{const r=p.reg[k];const[y,m,d]=k.split('-');const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];return[`${dias[dt.getDay()]} ${d}/${m}/${y}`,r.e||'—',r.s||'—',r.e&&r.s?calcHoras(r.e,r.s):'—'];});
+    if(!rows.length)rows=[['Sin registros','—','—','—']];
+  }
+  // Add summary header
+  const totalReg=Object.keys(p.reg).length;
+  const keys=Object.keys(p.reg).sort();
+  const primerDia=keys.length?keys[0]:'—';const ultimoDia=keys.length?keys[keys.length-1]:'—';
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
+  if(pdfOpt==='completo'&&keys.length){const[y1,m1,d1]=primerDia.split('-');const[y2,m2,d2]=ultimoDia.split('-');doc.text(`Período: ${d1}/${m1}/${y1} → ${d2}/${m2}/${y2}  ·  Total días con registro: ${totalReg}`,14,49);}
+  doc.autoTable({startY:pdfOpt==='completo'&&keys.length?54:50,head:[['Fecha','Hora Entrada','Hora Salida','Horas Trab.']],body:rows,headStyles:{fillColor:[25,118,210],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:2.5,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:52},1:{cellWidth:43},2:{cellWidth:43},3:{cellWidth:44}},margin:{left:14,right:14}});
+  const fy=doc.lastAutoTable.finalY+8;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,30,69);doc.text(`Total días registrados: ${totalReg}`,14,fy);pdfPie(doc);
+  const fn=pdfOpt==='completo'?'HistorialCompleto':'Semanal';
+  doc.save(`Reporte_${fn}_${p.nom.replace(/ /g,'_')}_${hoyStr}.pdf`);el.textContent=`✓ PDF descargado — ${totalReg} días registrados.`;
 }
 function genPDFDirectora(tipo){
   const el=document.getElementById('dir-pdf-st');const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -665,12 +748,50 @@ function guardarCfg(){
 function getCfgEmail1(){return localStorage.getItem('cfg_email1')||'';}
 function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'';}
 function getCfgEmail3(){return localStorage.getItem('cfg_email3')||'';}
-// EmailJS config
-const EJS_SERVICE='imhpa_service';
-const EJS_TEMPLATE='template_zsetc1r';
-const EJS_KEY='L8kn-WDe4fKoI62oB';
 const SHEETS_LINK='https://docs.google.com/spreadsheets/d/1vyyk-Qbyu_8AUxQMw8_6nHl0OLFkLKfrcpYDAFW9y_M/edit';
-emailjs.init(EJS_KEY);
+
+function cfgGenExcel(){
+  cerrarCfg();
+  // Use existing genExcelDirectora or build one
+  const hoyStr=hoy();
+  const[y,m,d]=hoyStr.split('-');
+  const fecha=d+'/'+m+'/'+y;
+  let csv='Nombre,Fecha,HoraEntrada,HoraSalida,Posicion\n';
+  PERSONAS.forEach(p=>{
+    const r=p.reg[hoyStr];
+    if(r&&(r.e||r.s)){
+      csv+=p.nom+','+fecha+','+(r.e||'')+ ','+(r.s||'')+','+(p.dir||'')+'\n';
+    }
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='Asistencia_IMHPA_'+hoyStr+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+function cfgGenPDF(){
+  cerrarCfg();
+  genPDFDirectora('dia');
+}
+
+function cfgCopiarMensaje(){
+  const hoyStr=hoy();
+  const[y,m,d]=hoyStr.split('-');
+  const fecha=d+'/'+m+'/'+y;
+  let msg='Registro de Asistencia — Dirección de Climatología IMHPA\nFecha: '+fecha+'\n\n';
+  PERSONAS.forEach(p=>{
+    const r=p.reg[hoyStr];
+    if(r&&(r.e||r.s)){
+      msg+=p.nom+' (Pos. '+( p.dir||'—')+'): Entrada '+( r.e||'—')+' / Salida '+(r.s||'—')+'\n';
+    }
+  });
+  msg+='\nVer registro completo: '+SHEETS_LINK;
+  navigator.clipboard.writeText(msg).then(()=>{
+    document.getElementById('cfg-copy-ok').style.display='block';
+    setTimeout(()=>document.getElementById('cfg-copy-ok').style.display='none',2500);
+  }).catch(()=>alert('No se pudo copiar. Intenta de nuevo.'));
+}
 
 async function enviarReporte(){
   const btn=document.querySelector('button[onclick="enviarReporte()"]');
