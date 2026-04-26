@@ -582,9 +582,16 @@ function borrarRegistro(tipo){
   guardarPersonas();renderDirectora();
   msg.textContent=`Registro de ${tipo==='dia'?'todo el día':tipo} borrado correctamente.`;msg.style.color='var(--green)';
 }
-function resetearTodo(){
-  if(!confirm('¿Estás segura? Esto borrará TODAS las personas y registros. Todos tendrán que registrarse de nuevo desde cero.'))return;
+async function resetearTodo(){
+  if(!confirm('¿Estás segura? Esto borrará TODAS las personas y registros de la app Y de Google Sheets. No se puede deshacer.'))return;
   if(!confirm('Segunda confirmación: ¿Borrar absolutamente todo?'))return;
+  const ld=document.getElementById('loading');
+  ld.style.display='flex';
+  document.getElementById('loading-msg').textContent='Borrando todo en Google Sheets...';
+  try{
+    await fetch(API_URL+'?accion=resetear_todo');
+  }catch(e){}
+  ld.style.display='none';
   PERSONAS=[];
   localStorage.removeItem('imhpa_personas');
   localStorage.removeItem('cfg_email1');
@@ -592,7 +599,7 @@ function resetearTodo(){
   localStorage.removeItem('cfg_email3');
   guardarPersonas();
   renderDirectora();
-  alert('Todo borrado. Ahora todos pueden registrarse desde cero.');
+  alert('Todo borrado correctamente en la app y en Google Sheets.');
 }
 function renderDirectora(){
   const hoyStr=hoy();const total=PERSONAS.length;const presentes=PERSONAS.filter(p=>p.reg[hoyStr]&&p.reg[hoyStr].e).length;const conSalida=PERSONAS.filter(p=>p.reg[hoyStr]&&p.reg[hoyStr].s).length;const totalDias=PERSONAS.reduce((a,p)=>a+Object.keys(p.reg).length,0);
