@@ -482,17 +482,30 @@ let PERSONAS=JSON.parse(localStorage.getItem('imhpa_personas')||'[]');
 function guardarPersonas(){localStorage.setItem('imhpa_personas',JSON.stringify(PERSONAS));}
 async function sincronizarPersonas(){
   try{
+    // 1. Cargar personas
     const resp=await fetch(API_URL+'?accion=cargar_personas');
     const data=await resp.json();
     if(data.ok&&data.personas&&data.personas.length){
-      // Merge: keep local reg history, update from server
       data.personas.forEach(sp=>{
         const existing=PERSONAS.find(p=>p.nom===sp.nom);
         if(!existing){PERSONAS.push({nom:sp.nom,dept:sp.dept||'Sin área',dir:String(sp.dir||''),ini:sp.ini||getIni(sp.nom),reg:{}});}
         else{existing.dir=String(sp.dir||existing.dir);existing.dept=sp.dept||existing.dept;}
       });
-      guardarPersonas();renderLista();
     }
+    // 2. Cargar registros y mezclar con personas
+    const resp2=await fetch(API_URL+'?accion=cargar_registros');
+    const data2=await resp2.json();
+    if(data2.ok&&data2.registros&&data2.registros.length){
+      data2.registros.forEach(r=>{
+        const p=PERSONAS.find(p=>p.nom===r.nombre);
+        if(p){
+          if(!p.reg[r.fecha])p.reg[r.fecha]={e:'',s:''};
+          if(r.entrada)p.reg[r.fecha].e=r.entrada;
+          if(r.salida)p.reg[r.fecha].s=r.salida;
+        }
+      });
+    }
+    guardarPersonas();renderLista();
   }catch(e){}
 }
 let pidx=null,calMes=3,calAnio=2026,pdfOpt='completo',clkInt=null,activeDay=null;
@@ -540,6 +553,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const sc=document.getElementById('stars');
   for(let i=0;i<30;i++){const d=document.createElement('div');d.className='star';const sz=Math.random()*2+1;d.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;opacity:${Math.random()*.6+.2};position:absolute;background:#fff;border-radius:50%`;sc.appendChild(d);}
   const n=new Date();document.getElementById('fecha-hoy').textContent=`${DL[n.getDay()]}, ${n.getDate()} de ${MESES[n.getMonth()]} de ${n.getFullYear()}`;
+  sincronizarPersonas();
 });
 function setSbActive(el){document.querySelectorAll('.sb-nav-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
 function show(id){
