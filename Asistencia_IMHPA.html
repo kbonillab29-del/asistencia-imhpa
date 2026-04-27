@@ -579,7 +579,7 @@ async function borrarMiRegistro(tipo){
   else delete p.reg[hoyStr];
   guardarPersonas();renderHist();
   msg.textContent='Borrando en Google Sheets...';msg.style.color='#888';
-  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo);}catch(e){}
+  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo,{mode:'no-cors'});}catch(e){}
   msg.textContent=(tipo==='dia'?'Registro del día':tipo==='entrada'?'Entrada':'Salida')+' borrado correctamente.';
   msg.style.color='var(--green)';
 }
@@ -597,7 +597,7 @@ async function borrarRegistro(tipo){
   else delete p.reg[hoyStr];
   guardarPersonas();renderDirectora();
   msg.textContent='Borrando en Google Sheets...';msg.style.color='#888';
-  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo);}catch(e){}
+  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo,{mode:'no-cors'});}catch(e){}
   msg.textContent='Registro de '+(tipo==='dia'?'todo el día':tipo)+' borrado correctamente.';msg.style.color='var(--green)';
 }
 async function resetearTodo(){
@@ -607,7 +607,7 @@ async function resetearTodo(){
   ld.style.display='flex';
   document.getElementById('loading-msg').textContent='Borrando todo en Google Sheets...';
   try{
-    await fetch(API_URL+'?accion=resetear_todo');
+    await fetch(API_URL+'?accion=resetear_todo',{mode:'no-cors'});
   }catch(e){}
   ld.style.display='none';
   PERSONAS=[];
@@ -666,7 +666,7 @@ async function registrar(){
   const nueva={nom,dept:dept||'Sin área',dir:cedula||'',ini:getIni(nom),reg:{}};
   PERSONAS.unshift(nueva);guardarPersonas();pidx=0;
   // Registrar persona nueva en la hoja Personas del Excel
-  try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||'',fecha:hoy()});await fetch(API_URL+'?'+params.toString());}catch(e){}
+  try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||'',fecha:hoy()});await fetch(API_URL+'?'+params.toString(),{mode:'no-cors'});}catch(e){}
   abrirCI(0);
 }
 function calPrev(){if(calMes>3){calMes--;}else if(calMes===3&&calAnio>2026){calAnio--;calMes=11;}renderCal();}function calNext(){if(calMes<4){calMes++;}else if(calMes===4){calMes=5;}renderCal();}
