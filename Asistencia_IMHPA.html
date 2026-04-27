@@ -567,34 +567,38 @@ function show(id){
 function abrirPin(){document.getElementById('pin-modal').style.display='flex';document.getElementById('pin-input').value='';document.getElementById('pin-err').style.display='none';setTimeout(()=>document.getElementById('pin-input').focus(),100);}
 function cerrarPin(){document.getElementById('pin-modal').style.display='none';}
 function verificarPin(){cerrarPin();show('s-directora');}
-function borrarMiRegistro(tipo){
+async function borrarMiRegistro(tipo){
   if(pidx===null)return;
   const p=PERSONAS[pidx];const hoyStr=hoy();
   const msg=document.getElementById('del-personal-msg');
   if(!p.reg[hoyStr]||(!p.reg[hoyStr].e&&!p.reg[hoyStr].s)){msg.textContent='No tienes registros hoy para borrar.';msg.style.color='#888';return;}
-  const confirmMsg=tipo==='dia'?`¿Borrar todo tu registro de hoy?`:tipo==='entrada'?'¿Borrar tu entrada de hoy?':'¿Borrar tu salida de hoy?';
+  const confirmMsg=tipo==='dia'?'¿Borrar todo tu registro de hoy?':tipo==='entrada'?'¿Borrar tu entrada de hoy?':'¿Borrar tu salida de hoy?';
   if(!confirm(confirmMsg))return;
   if(tipo==='entrada')p.reg[hoyStr].e='';
   else if(tipo==='salida')p.reg[hoyStr].s='';
   else delete p.reg[hoyStr];
   guardarPersonas();renderHist();
-  msg.textContent=`${tipo==='dia'?'Registro del día':tipo==='entrada'?'Entrada':'Salida'} borrado correctamente.`;
+  msg.textContent='Borrando en Google Sheets...';msg.style.color='#888';
+  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo);}catch(e){}
+  msg.textContent=(tipo==='dia'?'Registro del día':tipo==='entrada'?'Entrada':'Salida')+' borrado correctamente.';
   msg.style.color='var(--green)';
 }
-function borrarRegistro(tipo){
+async function borrarRegistro(tipo){
   const sel=document.getElementById('del-persona');
   const idx=parseInt(sel.value);
   const msg=document.getElementById('del-msg');
   if(isNaN(idx)){msg.textContent='Selecciona una persona primero.';msg.style.color='var(--red)';return;}
   const p=PERSONAS[idx];const hoyStr=hoy();
-  const confirmMsg=tipo==='dia'?`¿Borrar TODO el registro de hoy de ${p.nom}?`:tipo==='entrada'?`¿Borrar la entrada de hoy de ${p.nom}?`:`¿Borrar la salida de hoy de ${p.nom}?`;
+  const confirmMsg=tipo==='dia'?'¿Borrar TODO el registro de hoy de '+p.nom+'?':tipo==='entrada'?'¿Borrar la entrada de hoy de '+p.nom+'?':'¿Borrar la salida de hoy de '+p.nom+'?';
   if(!confirm(confirmMsg))return;
   if(!p.reg[hoyStr]){msg.textContent='Esta persona no tiene registro hoy.';msg.style.color='#888';return;}
   if(tipo==='entrada')p.reg[hoyStr].e='';
   else if(tipo==='salida')p.reg[hoyStr].s='';
   else delete p.reg[hoyStr];
   guardarPersonas();renderDirectora();
-  msg.textContent=`Registro de ${tipo==='dia'?'todo el día':tipo} borrado correctamente.`;msg.style.color='var(--green)';
+  msg.textContent='Borrando en Google Sheets...';msg.style.color='#888';
+  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo);}catch(e){}
+  msg.textContent='Registro de '+(tipo==='dia'?'todo el día':tipo)+' borrado correctamente.';msg.style.color='var(--green)';
 }
 async function resetearTodo(){
   if(!confirm('¿Estás segura? Esto borrará TODAS las personas y registros de la app Y de Google Sheets. No se puede deshacer.'))return;
