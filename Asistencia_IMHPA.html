@@ -567,6 +567,17 @@ function show(id){
 function abrirPin(){document.getElementById('pin-modal').style.display='flex';document.getElementById('pin-input').value='';document.getElementById('pin-err').style.display='none';setTimeout(()=>document.getElementById('pin-input').focus(),100);}
 function cerrarPin(){document.getElementById('pin-modal').style.display='none';}
 function verificarPin(){cerrarPin();show('s-directora');}
+function llamarAPI(params){
+  return new Promise(resolve=>{
+    const url=API_URL+'?'+new URLSearchParams(params).toString();
+    const iframe=document.createElement('iframe');
+    iframe.style.display='none';
+    iframe.src=url;
+    iframe.onload=()=>{setTimeout(()=>{document.body.removeChild(iframe);resolve(true);},500);};
+    iframe.onerror=()=>{document.body.removeChild(iframe);resolve(false);};
+    document.body.appendChild(iframe);
+  });
+}
 async function borrarMiRegistro(tipo){
   if(pidx===null)return;
   const p=PERSONAS[pidx];const hoyStr=hoy();
@@ -579,7 +590,7 @@ async function borrarMiRegistro(tipo){
   else delete p.reg[hoyStr];
   guardarPersonas();renderHist();
   msg.textContent='Borrando en Google Sheets...';msg.style.color='#888';
-  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo,{mode:'no-cors'});}catch(e){}
+  await llamarAPI({accion:'borrar_campo',nombre:p.nom,fecha:hoyStr,tipo});
   msg.textContent=(tipo==='dia'?'Registro del día':tipo==='entrada'?'Entrada':'Salida')+' borrado correctamente.';
   msg.style.color='var(--green)';
 }
@@ -597,7 +608,7 @@ async function borrarRegistro(tipo){
   else delete p.reg[hoyStr];
   guardarPersonas();renderDirectora();
   msg.textContent='Borrando en Google Sheets...';msg.style.color='#888';
-  try{await fetch(API_URL+'?accion=borrar_campo&nombre='+encodeURIComponent(p.nom)+'&fecha='+hoyStr+'&tipo='+tipo,{mode:'no-cors'});}catch(e){}
+  await llamarAPI({accion:'borrar_campo',nombre:p.nom,fecha:hoyStr,tipo});
   msg.textContent='Registro de '+(tipo==='dia'?'todo el día':tipo)+' borrado correctamente.';msg.style.color='var(--green)';
 }
 async function resetearTodo(){
@@ -606,15 +617,10 @@ async function resetearTodo(){
   const ld=document.getElementById('loading');
   ld.style.display='flex';
   document.getElementById('loading-msg').textContent='Borrando todo en Google Sheets...';
-  try{
-    await fetch(API_URL+'?accion=resetear_todo',{mode:'no-cors'});
-  }catch(e){}
+  await llamarAPI({accion:'resetear_todo'});
   ld.style.display='none';
   PERSONAS=[];
   localStorage.removeItem('imhpa_personas');
-  localStorage.removeItem('cfg_email1');
-  localStorage.removeItem('cfg_email2');
-  localStorage.removeItem('cfg_email3');
   guardarPersonas();
   renderDirectora();
   alert('Todo borrado correctamente en la app y en Google Sheets.');
