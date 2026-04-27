@@ -410,7 +410,7 @@ sincronizarPersonas();setSbActive(this)">
       <div class="screen" id="s-directora">
         <div class="dir-hero">
           <div class="dir-title">Área de la Directora</div>
-          <div class="dir-sub"> Dirección de Climatología</div>
+          <div class="dir-sub">Dirección de Climatología · IMHPA</div>
         </div>
         <div class="dir-body">
           <div class="stats-grid" id="dir-stats"></div>
@@ -646,8 +646,7 @@ async function registrar(){
   if(!nom){alert('Ingresa tu nombre');return;}
   const nueva={nom,dept:dept||'Sin área',dir:cedula||'',ini:getIni(nom),reg:{}};
   PERSONAS.unshift(nueva);guardarPersonas();pidx=0;
-  // Registrar persona nueva en la hoja Personas del Excel
-  try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||'',fecha:hoy()});await fetch(API_URL+'?'+params.toString(),{mode:'no-cors'});}catch(e){}
+  try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||''});await fetch(API_URL+'?'+params.toString(),{mode:'no-cors'});}catch(e){}
   abrirCI(0);
 }
 function calPrev(){if(calMes>3){calMes--;}else if(calMes===3&&calAnio>2026){calAnio--;calMes=11;}renderCal();}function calNext(){if(calMes<4){calMes++;}else if(calMes===4){calMes=5;}renderCal();}
