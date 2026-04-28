@@ -461,6 +461,35 @@ let PERSONAS=[];
 function guardarPersonas(){try{localStorage.setItem('imhpa_cache',JSON.stringify(PERSONAS));}catch(e){}}
 (function cargarCache(){try{const c=localStorage.getItem('imhpa_cache');if(c)PERSONAS=JSON.parse(c);}catch(e){PERSONAS=[];}})();
 
+// Normaliza fecha: acepta "yyyy-MM-dd", "dd/MM/yyyy", objeto Date serializado, etc.
+function normFecha(s){
+  if(!s||s==='undefined'||s==='null')return '';
+  // ya viene yyyy-MM-dd
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s.trim()))return s.trim();
+  // viene dd/MM/yyyy
+  const dm=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(dm)return `${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+  // viene como string de Date (Mon Apr 27 2026...)
+  const d=new Date(s);
+  if(!isNaN(d.getTime())){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  return '';
+}
+// Normaliza hora: acepta "HH:mm", "HH:mm:ss", decimales, strings de Date con timezone
+function normHora(s){
+  if(!s||s==='undefined'||s==='null'||s.trim()==='')return '';
+  // ya viene HH:mm o HH:mm:ss
+  const hm=s.match(/(\d{1,2}):(\d{2})/);
+  if(hm)return `${hm[1].padStart(2,'0')}:${hm[2]}`;
+  // viene como decimal (fracción del día)
+  const n=parseFloat(s);
+  if(!isNaN(n)&&n>=0&&n<1){
+    const mins=Math.round(n*24*60);
+    return `${String(Math.floor(mins/60)).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`;
+  }
+  return '';
+}
 async function sincronizarPersonas(){
   const ld=document.getElementById('loading');
   const lmsg=document.getElementById('loading-msg');
@@ -490,11 +519,16 @@ async function sincronizarPersonas(){
       d2.registros.forEach(r=>{
         if(!r.nombre||!r.fecha)return;
         const nom=String(r.nombre).trim();
+        // Normalizar fecha a yyyy-MM-dd
+        const fecha=normFecha(String(r.fecha));
+        if(!fecha)return;
         const p=nuevas.find(p=>p.nom===nom);
         if(p){
-          if(!p.reg[r.fecha])p.reg[r.fecha]={e:'',s:''};
-          if(r.entrada&&r.entrada.trim())p.reg[r.fecha].e=r.entrada.trim();
-          if(r.salida&&r.salida.trim())p.reg[r.fecha].s=r.salida.trim();
+          if(!p.reg[fecha])p.reg[fecha]={e:'',s:''};
+          const ent=normHora(String(r.entrada||''));
+          const sal=normHora(String(r.salida||''));
+          if(ent)p.reg[fecha].e=ent;
+          if(sal)p.reg[fecha].s=sal;
         }
       });
     }
@@ -679,8 +713,9 @@ async function marcar(tipo){
 
   // 1. Guardar local inmediatamente — la app responde sin esperar la red
   if(!p.reg[fecha])p.reg[fecha]={e:'',s:''};
-  if(tipo==='entrada')p.reg[fecha].e=hora;
-  else p.reg[fecha].s=hora;
+  const horaNorm=normHora(hora)||hora;
+  if(tipo==='entrada')p.reg[fecha].e=horaNorm;
+  else p.reg[fecha].s=horaNorm;
   guardarPersonas();
 
   const ld=document.getElementById('loading');ld.style.display='flex';
@@ -784,7 +819,11 @@ function genPDF(){
   const keys=Object.keys(p.reg).sort();
   const primerDia=keys.length?keys[0]:'—';const ultimoDia=keys.length?keys[keys.length-1]:'—';
   doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
-  if(pdfOpt==='completo'&&keys.length){const[y1,m1,d1]=primerDia.split('-');const[y2,m2,d2]=ultimoDia.split('-');doc.text(`Período: ${d1}/${m1}/${y1} → ${d2}/${m2}/${y2}  ·  Total días con registro: ${totalReg}`,14,49);}
+  if(pdfOpt==='completo'&&keys.length){
+    const f1=primerDia.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const f2=ultimoDia.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(f1&&f2){doc.text(`Período: ${f1[3]}/${f1[2]}/${f1[1]} → ${f2[3]}/${f2[2]}/${f2[1]}  ·  Total días con registro: ${totalReg}`,14,49);}
+  }
   doc.autoTable({startY:pdfOpt==='completo'&&keys.length?54:50,head:[['Fecha','Hora Entrada','Hora Salida','Horas Trab.']],body:rows,headStyles:{fillColor:[25,118,210],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:2.5,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:52},1:{cellWidth:43},2:{cellWidth:43},3:{cellWidth:44}},margin:{left:14,right:14}});
   const fy=doc.lastAutoTable.finalY+8;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,30,69);doc.text(`Total días registrados: ${totalReg}`,14,fy);pdfPie(doc);
   const fn=pdfOpt==='completo'?'HistorialCompleto':'Semanal';
