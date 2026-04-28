@@ -324,6 +324,7 @@ sincronizarPersonas();setSbActive(this)">
           <div class="sbox">
             <span style="font-size:14px;color:#aaa">&#128269;</span>
             <input type="text" placeholder="Buscar por nombre..." oninput="filtrar(this.value)" id="s-input"/>
+            <button onclick="sincronizarPersonas()" title="Actualizar lista" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:18px;padding:0 4px;line-height:1;">&#8635;</button>
           </div>
           <div id="lista"></div>
         </div>
@@ -445,7 +446,6 @@ sincronizarPersonas();setSbActive(this)">
 </div>
 
 <script>
-const FLOW_URL="https://hook.us2.make.com/rt1eyjiqoq4428gtc9rmlb79uf19yu2c";
 const API_URL="https://script.google.com/macros/s/AKfycbwSc84ggyJkCnNzSocE7sysDnlUJ7KkhFWitKn7Aan02NLHDcOphwx0xyRQSc9oMS6p/exec";
 const PIN_DIRECTORA="123";
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -455,36 +455,73 @@ const DL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 function hoy(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;}
 function horaActual(){const n=new Date();return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;}
 function getIni(n){return n.split(' ').slice(0,2).map(p=>p[0].toUpperCase()).join('');}
-let PERSONAS=JSON.parse(localStorage.getItem('imhpa_personas')||'[]');
-function guardarPersonas(){localStorage.setItem('imhpa_personas',JSON.stringify(PERSONAS));}
+
+// Sheets es la fuente de verdad. localStorage = caché de última carga exitosa.
+let PERSONAS=[];
+function guardarPersonas(){try{localStorage.setItem('imhpa_cache',JSON.stringify(PERSONAS));}catch(e){}}
+(function cargarCache(){try{const c=localStorage.getItem('imhpa_cache');if(c)PERSONAS=JSON.parse(c);}catch(e){PERSONAS=[];}})();
+
 async function sincronizarPersonas(){
+  const ld=document.getElementById('loading');
+  const lmsg=document.getElementById('loading-msg');
+  if(ld){ld.style.display='flex';if(lmsg)lmsg.textContent='Cargando desde Google Sheets...';}
   try{
-    // 1. Cargar personas
-    const resp=await fetch(API_URL+'?accion=cargar_personas');
-    const data=await resp.json();
-    if(data.ok&&data.personas&&data.personas.length){
-      data.personas.forEach(sp=>{
-        const existing=PERSONAS.find(p=>p.nom===sp.nom);
-        if(!existing){PERSONAS.push({nom:sp.nom,dept:sp.dept||'Sin área',dir:String(sp.dir||''),ini:sp.ini||getIni(sp.nom),reg:{}});}
-        else{existing.dir=String(sp.dir||existing.dir);existing.dept=sp.dept||existing.dept;}
+    // Cargar personas y registros en paralelo
+    const [r1,r2]=await Promise.all([
+      fetch(API_URL+'?accion=cargar_personas'),
+      fetch(API_URL+'?accion=cargar_registros')
+    ]);
+    const d1=await r1.json();
+    const d2=await r2.json();
+
+    // Reconstruir PERSONAS desde Sheets (no acumular sobre local)
+    const nuevas=[];
+    if(d1.ok&&d1.personas&&d1.personas.length){
+      d1.personas.forEach(sp=>{
+        const nom=String(sp.nom||'').trim();
+        if(!nom)return;
+        const cache=PERSONAS.find(p=>p.nom===nom);
+        nuevas.push({nom,dept:sp.dept||'Sin área',dir:String(sp.dir||''),ini:sp.ini||getIni(nom),reg:cache?{...cache.reg}:{}});
       });
     }
-    // 2. Cargar registros y mezclar con personas
-    const resp2=await fetch(API_URL+'?accion=cargar_registros');
-    const data2=await resp2.json();
-    if(data2.ok&&data2.registros&&data2.registros.length){
-      data2.registros.forEach(r=>{
-        const p=PERSONAS.find(p=>p.nom===r.nombre);
+    // Sobrescribir registros con lo que viene de Sheets (limpio)
+    if(d2.ok&&d2.registros&&d2.registros.length){
+      nuevas.forEach(p=>{ p.reg={}; });
+      d2.registros.forEach(r=>{
+        if(!r.nombre||!r.fecha)return;
+        const nom=String(r.nombre).trim();
+        const p=nuevas.find(p=>p.nom===nom);
         if(p){
           if(!p.reg[r.fecha])p.reg[r.fecha]={e:'',s:''};
-          if(r.entrada)p.reg[r.fecha].e=r.entrada;
-          if(r.salida)p.reg[r.fecha].s=r.salida;
+          if(r.entrada&&r.entrada.trim())p.reg[r.fecha].e=r.entrada.trim();
+          if(r.salida&&r.salida.trim())p.reg[r.fecha].s=r.salida.trim();
         }
       });
     }
-    guardarPersonas();renderLista();
-  }catch(e){}
+    if(nuevas.length)PERSONAS=nuevas;
+    guardarPersonas();
+    if(ld)ld.style.display='none';
+    renderLista('');
+    // Refrescar vista si alguien ya está en check-in
+    if(pidx!==null&&document.getElementById('s-checkin').classList.contains('active')){
+      renderHist();renderCal();renderSemanaVista();
+    }
+  }catch(err){
+    console.error('Sync error:',err);
+    if(ld)ld.style.display='none';
+    const lista=document.getElementById('lista');
+    if(lista&&!PERSONAS.length){
+      lista.innerHTML='<div style="text-align:center;padding:1.5rem;font-size:13px;color:#c0392b;">⚠ Sin conexión con Google Sheets.<br><span style=\'color:#888;font-size:12px;\'>Revisa tu internet y toca ↻ para reintentar.</span></div>';
+    } else {
+      renderLista('');
+    }
+  }
 }
+// Auto-sync cada 60s en segundo plano
+setInterval(()=>{
+  if(document.getElementById('loading').style.display==='flex')return;
+  sincronizarPersonas();
+},60000);
 let pidx=null,calMes=3,calAnio=2026,pdfOpt='completo',clkInt=null,activeDay=null;
 const TAREAS={
   // === ABRIL 2026 (desde Excel 26_4) ===
@@ -538,8 +575,8 @@ function show(id){
   document.getElementById(id).classList.add('active');
   if(id==='s-search'){renderLista('');document.getElementById('s-input').value='';}
   if(id==='s-checkin'){startClk();renderCal();renderHist();renderSemanaVista();updateBanner();}
+  else{stopClk();}
   if(id==='s-directora')renderDirectora();
-  else stopClk();
 }
 function abrirPin(){document.getElementById('pin-modal').style.display='flex';document.getElementById('pin-input').value='';document.getElementById('pin-err').style.display='none';setTimeout(()=>document.getElementById('pin-input').focus(),100);}
 function cerrarPin(){document.getElementById('pin-modal').style.display='none';}
@@ -597,7 +634,7 @@ async function resetearTodo(){
   await llamarAPI({accion:'resetear_todo'});
   ld.style.display='none';
   PERSONAS=[];
-  localStorage.removeItem('imhpa_personas');
+  localStorage.removeItem('imhpa_cache');
   guardarPersonas();
   renderDirectora();
   alert('Todo borrado correctamente en la app y en Google Sheets.');
@@ -609,9 +646,26 @@ function renderDirectora(){
 }
 function filtrar(q){renderLista(q.toLowerCase());}
 function renderLista(q){
-  const c=document.getElementById('lista');const f=q?PERSONAS.filter(p=>p.nom.toLowerCase().includes(q)):PERSONAS;
-  if(!f.length){c.innerHTML='<div style="text-align:center;color:#aaa;font-size:13px;padding:2rem 0">No encontrado</div>';return;}
-  c.innerHTML=f.map(p=>{const i=PERSONAS.indexOf(p);const h=hoy();const tieneE=p.reg[h]&&p.reg[h].e;const dias=Object.keys(p.reg).length;return `<div class="pcard" onclick="abrirCI(${i})"><div class="av">${p.ini}</div><div><div class="pn">${p.nom}</div><div class="pd">${p.dept} · ${dias} día${dias!==1?'s':''} guardados</div></div><span class="pill ${tieneE?'pin-p':'pout'}">${tieneE?'Entró':'Sin marcar'}</span></div>`;}).join('');
+  const c=document.getElementById('lista');
+  if(!c)return;
+  const busq=(q===undefined||q===null)?'':q;
+  const f=busq?PERSONAS.filter(p=>p.nom.toLowerCase().includes(busq)):PERSONAS;
+  if(!f.length){
+    c.innerHTML=busq
+      ?'<div style="text-align:center;color:#aaa;font-size:13px;padding:2rem 0">No encontrado</div>'
+      :'<div style="text-align:center;color:#aaa;font-size:13px;padding:2rem 0">Cargando...</div>';
+    return;
+  }
+  c.innerHTML=f.map(p=>{
+    const i=PERSONAS.indexOf(p);const h=hoy();
+    const r=p.reg[h];const tieneE=r&&r.e;const tieneS=r&&r.s;
+    const dias=Object.keys(p.reg).length;
+    let txt,cls;
+    if(tieneS){txt='Salida '+r.s;cls='pout';}
+    else if(tieneE){txt='Entró '+r.e;cls='pin-p';}
+    else{txt='Sin marcar';cls='pout';}
+    return `<div class="pcard" onclick="abrirCI(${i})"><div class="av">${p.ini}</div><div><div class="pn">${p.nom}</div><div class="pd">${p.dept} · ${dias} día${dias!==1?'s':''} guardados</div></div><span class="pill ${cls}">${txt}</span></div>`;
+  }).join('');
 }
 function abrirCI(idx){pidx=idx;const p=PERSONAS[idx];document.getElementById('ci-av').textContent=p.ini;document.getElementById('ci-nom').textContent=p.nom;document.getElementById('ci-dep').textContent=p.dept;document.getElementById('err-msg').style.display='none';show('s-checkin');}
 function renderHist(){if(pidx===null)return;const p=PERSONAS[pidx];const el=document.getElementById('ci-hist');const keys=Object.keys(p.reg).sort().reverse().slice(0,5);if(!keys.length){el.innerHTML='<div class="hist-row"><span style="color:#aaa">Sin registros aún</span></div>';return;}el.innerHTML=keys.map(k=>{const r=p.reg[k];const[y,m,d]=k.split('-');return `<div class="hist-row"><span style="color:#888">${d}/${m}/${y.slice(2)}</span><span style="color:var(--green);font-weight:500">${r.e?'▶ '+r.e:'—'}</span><span style="color:var(--red);font-weight:500">${r.s?'■ '+r.s:'—'}</span></div>`;}).join('');}
@@ -622,22 +676,49 @@ function updateClk(){const n=new Date();document.getElementById('ci-clk').textCo
 async function marcar(tipo){
   const p=PERSONAS[pidx];const hora=horaActual();const fecha=hoy();
   document.getElementById('err-msg').style.display='none';
-  const ld=document.getElementById('loading');ld.style.display='flex';document.getElementById('loading-msg').textContent=tipo==='entrada'?'Registrando entrada...':'Registrando salida...';
+
+  // 1. Guardar local inmediatamente — la app responde sin esperar la red
+  if(!p.reg[fecha])p.reg[fecha]={e:'',s:''};
+  if(tipo==='entrada')p.reg[fecha].e=hora;
+  else p.reg[fecha].s=hora;
+  guardarPersonas();
+
+  const ld=document.getElementById('loading');ld.style.display='flex';
+  document.getElementById('loading-msg').textContent=tipo==='entrada'?'Registrando entrada...':'Registrando salida...';
+
+  // 2. Enviar a Sheets con fila completa (upsert — no crea duplicados)
   let flowOk=false;
   try{
-    const params=new URLSearchParams({accion:'marcar',nombre:p.nom,posicion:p.dir||'',tipo,hora,fecha});
+    const r=p.reg[fecha];
+    const params=new URLSearchParams({
+      accion:'marcar',nombre:p.nom,posicion:p.dir||'',tipo,hora,fecha,
+      horaEntrada:r.e||'',horaSalida:r.s||''
+    });
     const resp=await fetch(API_URL+'?'+params.toString());
     const data=await resp.json();
     flowOk=data.ok===true;
   }catch(e){flowOk=false;}
-  ld.style.display='none';
-  // Mostrar estado de sincronización con SharePoint
-  const syncEl=document.getElementById('sync-status');
-  if(syncEl){syncEl.textContent=flowOk?'✓ Guardado en Google Sheets':'⚠ Guardado local (sin conexión)';syncEl.style.color=flowOk?'var(--green)':'#e67e22';syncEl.style.display='block';}
 
-  if(!p.reg[fecha])p.reg[fecha]={e:'',s:''};if(tipo==='entrada')p.reg[fecha].e=hora;else p.reg[fecha].s=hora;guardarPersonas();
+  ld.style.display='none';
+  const syncEl=document.getElementById('sync-status');
+  if(syncEl){
+    syncEl.textContent=flowOk?'✓ Guardado en Google Sheets':'⚠ Error al guardar en Sheets — intenta de nuevo';
+    syncEl.style.color=flowOk?'var(--green)':'var(--red)';
+    syncEl.style.display='block';
+  }
+
   const r=p.reg[fecha];const[y,m,d]=fecha.split('-');const fmtF=`${d}/${m}/${y.slice(2)}`;const dias=Object.keys(p.reg).length;
-  document.getElementById('suc-tb').textContent=tipo==='entrada'?'Entrada registrada':'Salida registrada';document.getElementById('suc-t').textContent=tipo==='entrada'?'¡Entrada marcada!':'¡Salida marcada!';document.getElementById('suc-ic').style.background=tipo==='entrada'?'var(--green)':'var(--red)';document.getElementById('suc-hr').textContent=hora;document.getElementById('suc-hr').style.color=tipo==='entrada'?'var(--green)':'var(--red)';document.getElementById('suc-count').textContent=dias;document.getElementById('x-nom').textContent=p.nom;document.getElementById('x-fec').textContent=fmtF;document.getElementById('x-ent').textContent=r.e||'—';const xs=document.getElementById('x-sal');xs.textContent=r.s||'—';xs.style.color=r.s?'#111':'#aaa';show('s-success');
+  document.getElementById('suc-tb').textContent=tipo==='entrada'?'Entrada registrada':'Salida registrada';
+  document.getElementById('suc-t').textContent=tipo==='entrada'?'¡Entrada marcada!':'¡Salida marcada!';
+  document.getElementById('suc-ic').style.background=tipo==='entrada'?'var(--green)':'var(--red)';
+  document.getElementById('suc-hr').textContent=hora;
+  document.getElementById('suc-hr').style.color=tipo==='entrada'?'var(--green)':'var(--red)';
+  document.getElementById('suc-count').textContent=dias;
+  document.getElementById('x-nom').textContent=p.nom;
+  document.getElementById('x-fec').textContent=fmtF;
+  document.getElementById('x-ent').textContent=r.e||'—';
+  const xs=document.getElementById('x-sal');xs.textContent=r.s||'—';xs.style.color=r.s?'#111':'#aaa';
+  show('s-success');
 }
 async function registrar(){
   const nom=document.getElementById('reg-nom').value.trim();
@@ -649,7 +730,8 @@ async function registrar(){
   try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||''});await fetch(API_URL+'?'+params.toString(),{mode:'no-cors'});}catch(e){}
   abrirCI(0);
 }
-function calPrev(){if(calMes>3){calMes--;}else if(calMes===3&&calAnio>2026){calAnio--;calMes=11;}renderCal();}function calNext(){if(calMes<4){calMes++;}else if(calMes===4){calMes=5;}renderCal();}
+function calPrev(){if(calMes>0){calMes--;}else{calMes=11;calAnio--;}renderCal();}
+function calNext(){if(calMes<11){calMes++;}else{calMes=0;calAnio++;}renderCal();}
 function renderCal(){document.getElementById('cal-title').textContent=`${MESES_C[calMes]} ${calAnio}`;const grid=document.getElementById('cal-grid');const p=pidx!==null?PERSONAS[pidx]:null;const hoyStr=hoy();let html=DS.map(d=>`<div class="cal-hdr">${d}</div>`).join('');const first=new Date(calAnio,calMes,1).getDay();const dim=new Date(calAnio,calMes+1,0).getDate();for(let i=0;i<first;i++)html+=`<div class="cd empty"></div>`;for(let d=1;d<=dim;d++){const dt=new Date(calAnio,calMes,d);const key=`${calAnio}-${String(calMes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const isToday=key===hoyStr;const isWk=dt.getDay()===0||dt.getDay()===6;const hasTarea=TAREAS[key]&&TAREAS[key].length>0;const reg=p&&p.reg[key];const isLib=TAREAS[key]&&TAREAS[key][0]&&TAREAS[key][0].toLowerCase().startsWith('libre');const dr=[(reg&&reg.e?'<div class="dot-e"></div>':''),(reg&&reg.s?'<div class="dot-s"></div>':''),(hasTarea&&!isLib?'<div class="task-dot"></div>':'')].join('');const dots=dr?`<div class="dot-row">${dr}</div>`:'';html+=`<div class="cd${isToday?' today':''}${isWk&&!isToday?' wk':''}${isLib&&!isToday?' libre':''}" onclick="tapDay('${key}')"><span>${d}</span>${dots}</div>`;}grid.innerHTML=html;}
 function tapDay(key){const pop=document.getElementById('task-popup');if(activeDay===key){activeDay=null;pop.innerHTML='';renderCal();return;}activeDay=key;renderCal();const tasks=TAREAS[key];if(!tasks||!tasks.length){pop.innerHTML='';return;}const[y,m,d]=key.split('-');const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));pop.innerHTML=`<div class="task-pop"><div class="task-pop-title">&#128197; ${DL[dt.getDay()]} ${parseInt(d)} de ${MESES[parseInt(m)-1]}</div>${tasks.filter(t=>t).map(t=>`<div>&#8226; ${t}</div>`).join('')}</div>`;}
 function selPdf(o){pdfOpt=o;document.getElementById('opt-c').classList.toggle('active',o==='completo');document.getElementById('opt-s').classList.toggle('active',o==='sem');}
@@ -765,16 +847,21 @@ function cfgGenCSV(){
   cerrarCfg();
   const hoyStr=hoy();const[y,m,d]=hoyStr.split('-');const fecha=d+'/'+m+'/'+y;
   let csv='Nombre,Departamento,Posicion,Fecha,HoraEntrada,HoraSalida\n';
+  let count=0;
   PERSONAS.forEach(p=>{
     const r=p.reg[hoyStr];
     if(r&&(r.e||r.s)){
       csv+='"'+p.nom+'","'+(p.dept||'')+'","'+(p.dir||'')+'","'+fecha+'","'+(r.e||'')+'","'+(r.s||'')+'"\n';
+      count++;
     }
   });
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  if(!count){alert('No hay registros de hoy para exportar.\nEspera que cargue la lista desde Sheets e intenta de nuevo.');return;}
+  const bom='\uFEFF';
+  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download='Asistencia_IMHPA_'+hoyStr+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function cfgGenPDF(){
@@ -815,8 +902,7 @@ async function enviarReporte(){
   // Build HTML table from today registros
   const filasDia=PERSONAS.map(p=>{
     const r=p.reg[hoyStr];
-    if(!r&&!r) return null;
-    if(!p.reg[hoyStr]) return null;
+    if(!r||(r.e===''&&r.s==='')) return null;
     return '<tr><td style="padding:8px;border-bottom:1px solid #eee;">'+p.nom+'</td><td style="padding:8px;border-bottom:1px solid #eee;">'+( p.dir||'—')+'</td><td style="padding:8px;border-bottom:1px solid #eee;color:#1a6b3c;">'+(p.reg[hoyStr].e||'—')+'</td><td style="padding:8px;border-bottom:1px solid #eee;color:#c0392b;">'+(p.reg[hoyStr].s||'—')+'</td></tr>';
   }).filter(Boolean).join('');
 
