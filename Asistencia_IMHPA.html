@@ -788,43 +788,53 @@ function renderSemanaVista(){
   }).join('');
   el.innerHTML=`<div style="font-size:11px;font-weight:600;color:var(--dark);margin-bottom:6px">Últimos 7 días — ${p.nom}</div>${rows}`;
 }
+function parseFechaLocal(k){
+  // Parsear yyyy-MM-dd como fecha LOCAL (no UTC) para evitar desfase de timezone
+  const[y,m,d]=k.split('-').map(Number);
+  return new Date(y,m-1,d);
+}
 function genPDF(){
   const el=document.getElementById('pdf-st');if(pidx===null){el.textContent='Selecciona un usuario primero.';return;}
   const p=PERSONAS[pidx];const hoyStr=hoy();const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const titulo=pdfOpt==='completo'?'MI HISTORIAL COMPLETO DE ASISTENCIA':'REPORTE SEMANAL DE ASISTENCIA';
   pdfEncabezado(doc,titulo,`Empleado: ${p.nom} · ${p.dept}`);
+  const DIAS_S=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   let rows=[];
+  const keys=Object.keys(p.reg).sort();
   if(pdfOpt==='completo'){
-    // All days from first to last registered
-    const keys=Object.keys(p.reg).sort();
     if(!keys.length){rows=[['Sin registros','—','—','—']];}
     else{
-      // Fill every calendar day from first to last
-      const firstDate=new Date(keys[0]);const lastDate=new Date(keys[keys.length-1]);
+      // Usar parseFechaLocal para evitar desfase UTC vs local
+      const firstDate=parseFechaLocal(keys[0]);
+      const lastDate=parseFechaLocal(keys[keys.length-1]);
       for(let dt=new Date(firstDate);dt<=lastDate;dt.setDate(dt.getDate()+1)){
         const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-        const wd=dt.getDay();if(wd===0||wd===6)continue;// skip weekends
-        const r=p.reg[k];const[y,m,d]=k.split('-');
-        const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-        rows.push([`${dias[wd]} ${d}/${m}/${y}`,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']);
+        const wd=dt.getDay();
+        // Incluir TODOS los días con registro, incluso fines de semana
+        const r=p.reg[k];
+        if(!r&&(wd===0||wd===6))continue; // saltar fines de semana sin registro
+        const[y,m,d]=k.split('-');
+        rows.push([`${DIAS_S[wd]} ${d}/${m}/${y}`,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']);
       }
     }
   } else {
-    const keys=Object.keys(p.reg).sort().slice(-7);
-    rows=keys.map(k=>{const r=p.reg[k];const[y,m,d]=k.split('-');const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];return[`${dias[dt.getDay()]} ${d}/${m}/${y}`,r.e||'—',r.s||'—',r.e&&r.s?calcHoras(r.e,r.s):'—'];});
+    // Última semana — mostrar solo días con registro
+    const ultKeys=keys.slice(-7);
+    rows=ultKeys.map(k=>{
+      const r=p.reg[k];const[y,m,d]=k.split('-');
+      const dt=parseFechaLocal(k);
+      return[`${DIAS_S[dt.getDay()]} ${d}/${m}/${y}`,r.e||'—',r.s||'—',r.e&&r.s?calcHoras(r.e,r.s):'—'];
+    });
     if(!rows.length)rows=[['Sin registros','—','—','—']];
   }
-  // Add summary header
-  const totalReg=Object.keys(p.reg).length;
-  const keys=Object.keys(p.reg).sort();
-  const primerDia=keys.length?keys[0]:'—';const ultimoDia=keys.length?keys[keys.length-1]:'—';
+  const totalReg=keys.length;
+  const primerDia=keys.length?keys[0]:'';const ultimoDia=keys.length?keys[keys.length-1]:'';
   doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
-  if(pdfOpt==='completo'&&keys.length){
-    const f1=primerDia.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    const f2=ultimoDia.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(f1&&f2){doc.text(`Período: ${f1[3]}/${f1[2]}/${f1[1]} → ${f2[3]}/${f2[2]}/${f2[1]}  ·  Total días con registro: ${totalReg}`,14,49);}
+  if(pdfOpt==='completo'&&primerDia){
+    const[y1,m1,d1]=primerDia.split('-');const[y2,m2,d2]=ultimoDia.split('-');
+    doc.text(`Período: ${d1}/${m1}/${y1} → ${d2}/${m2}/${y2}  ·  Total días con registro: ${totalReg}`,14,49);
   }
-  doc.autoTable({startY:pdfOpt==='completo'&&keys.length?54:50,head:[['Fecha','Hora Entrada','Hora Salida','Horas Trab.']],body:rows,headStyles:{fillColor:[25,118,210],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:2.5,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:52},1:{cellWidth:43},2:{cellWidth:43},3:{cellWidth:44}},margin:{left:14,right:14}});
+  doc.autoTable({startY:pdfOpt==='completo'&&primerDia?54:50,head:[['Fecha','Hora Entrada','Hora Salida','Horas Trab.']],body:rows,headStyles:{fillColor:[25,118,210],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:2.5,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:52},1:{cellWidth:43},2:{cellWidth:43},3:{cellWidth:44}},margin:{left:14,right:14}});
   const fy=doc.lastAutoTable.finalY+8;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,30,69);doc.text(`Total días registrados: ${totalReg}`,14,fy);pdfPie(doc);
   const fn=pdfOpt==='completo'?'HistorialCompleto':'Semanal';
   doc.save(`Reporte_${fn}_${p.nom.replace(/ /g,'_')}_${hoyStr}.pdf`);el.textContent=`✓ PDF descargado — ${totalReg} días registrados.`;
