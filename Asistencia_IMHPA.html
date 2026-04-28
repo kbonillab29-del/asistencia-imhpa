@@ -839,9 +839,9 @@ function genPDF(){
   const fn=pdfOpt==='completo'?'HistorialCompleto':'Semanal';
   doc.save(`Reporte_${fn}_${p.nom.replace(/ /g,'_')}_${hoyStr}.pdf`);el.textContent=`✓ PDF descargado — ${totalReg} días registrados.`;
 }
-function genPDFDirectora(tipo){
+function genPDFDirectora(tipo, fechaOverride){
   const el=document.getElementById('dir-pdf-st');const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const hoyStr=hoy();const[y,m,d]=hoyStr.split('-');
+  const hoyStr=fechaOverride||hoy();const[y,m,d]=hoyStr.split('-');
   pdfEncabezado(doc,tipo==='dia'?'REPORTE DIARIO GENERAL — TODO EL PERSONAL':'REPORTE SEMANAL GENERAL — TODO EL PERSONAL',tipo==='dia'?`Fecha: ${d}/${m}/${y}`:`Últimos 7 días`);
   let rows=[];
   if(tipo==='dia'){PERSONAS.forEach(p=>{const r=p.reg[hoyStr];rows.push([p.nom,p.dept,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']);});doc.autoTable({startY:50,head:[['Nombre','Departamento','Entrada','Salida','Horas']],body:rows,headStyles:{fillColor:[17,30,69],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:3,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:55},1:{cellWidth:40},2:{cellWidth:28},3:{cellWidth:28},4:{cellWidth:31}},margin:{left:14,right:14}});}
@@ -862,16 +862,61 @@ function abrirCfgPin(){
   setTimeout(()=>document.getElementById('cfg-pin-input').focus(),100);
 }
 function cerrarCfg(){document.getElementById('cfg-modal-bg').style.display='none';}
+// Feriados de Panamá — lista fija (yyyy-MM-dd)
+const FERIADOS_PA=[
+  '2026-01-01','2026-01-09','2026-02-16','2026-02-17',
+  '2026-04-03','2026-05-01','2026-11-02','2026-11-03',
+  '2026-11-04','2026-11-05','2026-11-10','2026-11-28',
+  '2026-12-08','2026-12-25',
+  // Feriados del TAREAS (Libre —...)
+].concat(Object.keys(TAREAS).filter(k=>TAREAS[k][0]&&TAREAS[k][0].toLowerCase().startsWith('libre')));
+
+function esDiaHabil(fechaStr){
+  const d=parseFechaLocal(fechaStr);
+  const wd=d.getDay();
+  if(wd===0||wd===6)return false;
+  if(FERIADOS_PA.includes(fechaStr))return false;
+  return true;
+}
+
+function diaHabilAnterior(desdeStr){
+  // desdeStr = yyyy-MM-dd, retorna el día hábil anterior
+  const desde=parseFechaLocal(desdeStr);
+  const dt=new Date(desde);
+  dt.setDate(dt.getDate()-1);
+  for(let i=0;i<10;i++){
+    const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    if(esDiaHabil(k))return k;
+    dt.setDate(dt.getDate()-1);
+  }
+  return desdeStr; // fallback
+}
+
+function fechaSugerida(){
+  // Si hoy es lunes o el día de hoy es después de un festivo, sugiere el último día hábil anterior
+  return diaHabilAnterior(hoy());
+}
+
+function fmtFechaLarga(fechaStr){
+  const[y,m,d]=fechaStr.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  return `${DL[dt.getDay()]} ${d} de ${MESES[m-1]} de ${y}`;
+}
+
 function verificarCfgPin(){
   const v=document.getElementById('cfg-pin-input').value;
   if(v===PIN_CONFIG){
     document.getElementById('cfg-pin-step').style.display='none';
     document.getElementById('cfg-form-step').style.display='block';
     document.getElementById('cfg-ok').style.display='none';
-    // Load saved values
-    document.getElementById('cfg-email1').value=localStorage.getItem('cfg_email1')||'';
-    document.getElementById('cfg-email2').value=localStorage.getItem('cfg_email2')||'';
-    document.getElementById('cfg-email3').value=localStorage.getItem('cfg_email3')||'';
+    // Inicializar selector de fecha con día hábil anterior sugerido
+    const sugerida=fechaSugerida();
+    document.getElementById('cfg-fecha-reporte').value=sugerida;
+    document.getElementById('cfg-fecha-hint').textContent='📅 Sugerido: '+fmtFechaLarga(sugerida);
+    document.getElementById('cfg-fecha-reporte').addEventListener('change',function(){
+      const v=this.value;
+      if(v)document.getElementById('cfg-fecha-hint').textContent='📅 '+fmtFechaLarga(v);
+    });
   } else {
     document.getElementById('cfg-pin-err').style.display='block';
     document.getElementById('cfg-pin-input').value='';
@@ -892,30 +937,41 @@ function getCfgEmail2(){return localStorage.getItem('cfg_email2')||'';}
 function getCfgEmail3(){return localStorage.getItem('cfg_email3')||'';}
 const SHEETS_LINK='https://docs.google.com/spreadsheets/d/1vyyk-Qbyu_8AUxQMw8_6nHl0OLFkLKfrcpYDAFW9y_M/edit';
 
+function cfgGetFechaSeleccionada(){
+  const v=document.getElementById('cfg-fecha-reporte').value;
+  return v||fechaSugerida();
+}
+
 function cfgGenCSV(){
+  const fechaStr=cfgGetFechaSeleccionada();
   cerrarCfg();
-  const hoyStr=hoy();const[y,m,d]=hoyStr.split('-');const fecha=d+'/'+m+'/'+y;
+  const[y,m,d]=fechaStr.split('-');
+  const fechaFmt=d+'/'+m+'/'+y;
   let csv='Nombre,Departamento,Posicion,Fecha,HoraEntrada,HoraSalida\n';
   let count=0;
   PERSONAS.forEach(p=>{
-    const r=p.reg[hoyStr];
+    const r=p.reg[fechaStr];
     if(r&&(r.e||r.s)){
-      csv+='"'+p.nom+'","'+(p.dept||'')+'","'+(p.dir||'')+'","'+fecha+'","'+(r.e||'')+'","'+(r.s||'')+'"\n';
+      csv+='"'+p.nom+'","'+(p.dept||'')+'","'+(p.dir||'')+'","'+fechaFmt+'","'+(r.e||'')+'","'+(r.s||'')+'"\n';
       count++;
     }
   });
-  if(!count){alert('No hay registros de hoy para exportar.\nEspera que cargue la lista desde Sheets e intenta de nuevo.');return;}
+  if(!count){
+    alert('No hay registros para el '+fechaFmt+'.\nVerifica que la fecha sea correcta y que la lista esté cargada.');
+    return;
+  }
   const bom='\uFEFF';
   const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='Asistencia_IMHPA_'+hoyStr+'.csv';
+  const a=document.createElement('a');a.href=url;a.download='Asistencia_IMHPA_'+fechaStr+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
 function cfgGenPDF(){
+  const fechaStr=cfgGetFechaSeleccionada();
   cerrarCfg();
-  genPDFDirectora('dia');
+  genPDFDirectora('dia', fechaStr);
 }
 
 function cfgCopiarMensaje(){
@@ -998,9 +1054,14 @@ async function enviarReporte(){
       <div class="cfg-title">⚙ Configuración</div>
       <div class="cfg-sub">Dirección de Climatología · IMHPA</div>
       <div style="height:1px;background:#eee;margin:.75rem 0;"></div>
-      <div class="cfg-lbl" style="font-weight:600;color:#111E45;">Descargar reportes del día</div>
-      <button class="cfg-save" style="margin-top:.75rem;" onclick="cfgGenPDF()">📄 Descargar PDF — asistencia del día</button>
-      <button class="cfg-save" style="background:#1a6b3c;margin-top:.5rem;" onclick="cfgGenCSV()">📊 Descargar tabla Excel (CSV) del día</button>
+      <div class="cfg-lbl" style="font-weight:600;color:#111E45;">Descargar reporte de asistencia</div>
+      <div class="cfg-lbl" style="margin-top:.6rem;">Fecha del reporte</div>
+      <input type="date" id="cfg-fecha-reporte" class="cfg-input" style="margin-top:.3rem;font-size:14px;"/>
+      <div id="cfg-fecha-hint" style="font-size:11px;color:#1976D2;margin-top:.3rem;font-weight:500;"></div>
+      <div style="display:flex;gap:8px;margin-top:.75rem;">
+        <button class="cfg-save" style="flex:1;margin-top:0;" onclick="cfgGenPDF()">📄 PDF</button>
+        <button class="cfg-save" style="flex:1;margin-top:0;background:#1a6b3c;" onclick="cfgGenCSV()">📊 Excel</button>
+      </div>
       <div style="height:1px;background:#eee;margin:.85rem 0;"></div>
       <div class="cfg-lbl" style="font-weight:600;color:#111E45;">Mensaje de teletrabajo</div>
       <div class="cfg-sub" style="margin-bottom:.5rem;">Copia el mensaje listo para enviar a la Dirección</div>
