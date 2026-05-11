@@ -308,7 +308,7 @@ sincronizarPersonas();setSbActive(this)">
         </div>
         <div class="r-body">
           <div class="fl">Nombre completo</div><input class="fi" type="text" id="reg-nom" placeholder="Ej: María García"/>
-          <div class="fl">Departamento / Área</div><input class="fi" type="text" id="reg-dept" placeholder="Ej: Climatología"/>
+          <div class="fl">Dirección / Área</div><input class="fi" type="text" id="reg-dept" placeholder="Ej: Climatología"/>
           <div class="fl">Número de posición</div><input class="fi" type="number" id="reg-id" placeholder="Ej: 76"/>
           <button class="btn-p" style="margin-top:1.5rem" onclick="registrar()">Registrarme y hacer check-in</button>
         </div>
@@ -762,7 +762,7 @@ async function registrar(){
   if(!nom){alert('Ingresa tu nombre');return;}
   const nueva={nom,dept:dept||'Sin área',dir:cedula||'',ini:getIni(nom),reg:{}};
   PERSONAS.unshift(nueva);guardarPersonas();pidx=0;
-  try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,departamento:dept||'Sin área',posicion:cedula||''});await fetch(API_URL+'?'+params.toString(),{mode:'no-cors'});}catch(e){}
+  try{const params=new URLSearchParams({accion:'nueva_persona',nombre:nom,Dirección:dept||'Sin área',posicion:cedula||''});await fetch(API_URL+'?'+params.toString(),{mode:'no-cors'});}catch(e){}
   abrirCI(0);
 }
 function calPrev(){if(calMes>0){calMes--;}else{calMes=11;calAnio--;}renderCal();}
@@ -839,15 +839,61 @@ function genPDF(){
   const fn=pdfOpt==='completo'?'HistorialCompleto':'Semanal';
   doc.save(`Reporte_${fn}_${p.nom.replace(/ /g,'_')}_${hoyStr}.pdf`);el.textContent=`✓ PDF descargado — ${totalReg} días registrados.`;
 }
-function genPDFDirectora(tipo, fechaOverride){
-  const el=document.getElementById('dir-pdf-st');const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const hoyStr=fechaOverride||hoy();const[y,m,d]=hoyStr.split('-');
-  pdfEncabezado(doc,tipo==='dia'?'REPORTE DIARIO GENERAL — TODO EL PERSONAL':'REPORTE SEMANAL GENERAL — TODO EL PERSONAL',tipo==='dia'?`Fecha: ${d}/${m}/${y}`:`Últimos 7 días`);
+function genPDFDirectoraRango(fechaInicio, fechaFin){
+  const el=document.getElementById('dir-pdf-st');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+
+  pdfEncabezado(
+    doc,
+    'REPORTE GENERAL DE ASISTENCIA',
+    `Desde ${fechaInicio.split('-').reverse().join('/')} hasta ${fechaFin.split('-').reverse().join('/')}`
+  );
+
   let rows=[];
-  if(tipo==='dia'){PERSONAS.forEach(p=>{const r=p.reg[hoyStr];rows.push([p.nom,p.dept,r?r.e||'—':'—',r?r.s||'—':'—',r&&r.e&&r.s?calcHoras(r.e,r.s):'—']);});doc.autoTable({startY:50,head:[['Nombre','Departamento','Entrada','Salida','Horas']],body:rows,headStyles:{fillColor:[17,30,69],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:3,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:55},1:{cellWidth:40},2:{cellWidth:28},3:{cellWidth:28},4:{cellWidth:31}},margin:{left:14,right:14}});}
-  else{PERSONAS.forEach(p=>{const keys=Object.keys(p.reg).sort().slice(-7);keys.forEach(k=>{const r=p.reg[k];const[ky,km,kd]=k.split('-');rows.push([p.nom,`${kd}/${km}/${ky}`,r.e||'—',r.s||'—',r.e&&r.s?calcHoras(r.e,r.s):'—']);});});if(!rows.length)rows=[['Sin registros','—','—','—','—']];doc.autoTable({startY:50,head:[['Nombre','Fecha','Entrada','Salida','Horas']],body:rows,headStyles:{fillColor:[17,30,69],textColor:255,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},alternateRowStyles:{fillColor:[240,244,248]},styles:{cellPadding:3,lineColor:[200,200,200],lineWidth:0.3},columnStyles:{0:{cellWidth:55},1:{cellWidth:35},2:{cellWidth:28},3:{cellWidth:28},4:{cellWidth:36}},margin:{left:14,right:14}});}
-  const fy=doc.lastAutoTable.finalY+8;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(17,30,69);doc.text(`Total personal: ${PERSONAS.length}   Presentes hoy: ${PERSONAS.filter(p=>p.reg[hoyStr]&&p.reg[hoyStr].e).length}`,14,fy);pdfPie(doc);
-  doc.save(`ReporteGeneral_${tipo==='dia'?'Diario':'Semanal'}_${hoyStr}.pdf`);el.textContent=`Reporte general descargado correctamente.`;
+  const dIni=parseFechaLocal(fechaInicio);
+  const dFin=parseFechaLocal(fechaFin);
+
+  for(let dt=new Date(dIni); dt<=dFin; dt.setDate(dt.getDate()+1)){
+    const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    const f=`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
+
+    PERSONAS.forEach(p=>{
+      const r=p.reg[k];
+      if(r && (r.e || r.s)){
+        rows.push([
+          p.nom,
+          p.dept,
+          f,
+          r.e || '—',
+          r.s || '—',
+          r.e && r.s ? calcHoras(r.e,r.s) : '—'
+        ]);
+      }
+    });
+  }
+
+  if(!rows.length){
+    alert('No hay registros entre el último día hábil y hoy.');
+    return;
+  }
+
+  doc.autoTable({
+    startY:50,
+    head:[['Nombre','Dirección','Fecha','Entrada','Salida','Horas']],
+    body:rows,
+    headStyles:{fillColor:[17,30,69],textColor:255,fontStyle:'bold',fontSize:9},
+    bodyStyles:{fontSize:9},
+    alternateRowStyles:{fillColor:[240,244,248]},
+    styles:{cellPadding:3},
+    margin:{left:14,right:14}
+  });
+
+  pdfPie(doc);
+
+  doc.save(`Reporte_Asistencia_${fechaInicio}_a_${fechaFin}.pdf`);
+
+  if(el) el.textContent='✓ Reporte generado correctamente.';
 }
 show('s-welcome');
 
@@ -941,37 +987,54 @@ function cfgGetFechaSeleccionada(){
   const v=document.getElementById('cfg-fecha-reporte').value;
   return v||fechaSugerida();
 }
-
 function cfgGenCSV(){
-  const fechaStr=cfgGetFechaSeleccionada();
   cerrarCfg();
-  const[y,m,d]=fechaStr.split('-');
-  const fechaFmt=d+'/'+m+'/'+y;
-  let csv='Nombre,Departamento,Posicion,Fecha,HoraEntrada,HoraSalida\n';
-  let count=0;
-  PERSONAS.forEach(p=>{
-    const r=p.reg[fechaStr];
-    if(r&&(r.e||r.s)){
-      csv+='"'+p.nom+'","'+(p.dept||'')+'","'+(p.dir||'')+'","'+fechaFmt+'","'+(r.e||'')+'","'+(r.s||'')+'"\n';
-      count++;
-    }
-  });
+
+  const fechaInicio = diaHabilAnterior(hoy());
+  const fechaFin = hoy();
+
+  let csv = 'Nombre,Dirección,Posicion,Fecha,HoraEntrada,HoraSalida\n';
+  let count = 0;
+
+  const dIni = parseFechaLocal(fechaInicio);
+  const dFin = parseFechaLocal(fechaFin);
+
+  for(let dt = new Date(dIni); dt <= dFin; dt.setDate(dt.getDate() + 1)){
+    const k = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    const f = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
+
+    PERSONAS.forEach(p=>{
+      const r = p.reg[k];
+      if(r && (r.e || r.s)){
+        csv += `"${p.nom}","${p.dept||''}","${p.dir||''}","${f}","${r.e||''}","${r.s||''}"\n`;
+        count++;
+      }
+    });
+  }
+
   if(!count){
-    alert('No hay registros para el '+fechaFmt+'.\nVerifica que la fecha sea correcta y que la lista esté cargada.');
+    alert('No hay registros entre el último día hábil y hoy.');
     return;
   }
-  const bom='\uFEFF';
-  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='Asistencia_IMHPA_'+fechaStr+'.csv';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
+
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Asistencia_IMHPA_${fechaInicio}_a_${fechaFin}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
 function cfgGenPDF(){
-  const fechaStr=cfgGetFechaSeleccionada();
   cerrarCfg();
-  genPDFDirectora('dia', fechaStr);
+
+  const fechaInicio = diaHabilAnterior(hoy());
+  const fechaFin = hoy();
+
+  genPDFDirectoraRango(fechaInicio, fechaFin);
 }
 
 function cfgCopiarMensaje(){
@@ -979,7 +1042,7 @@ function cfgCopiarMensaje(){
   const MESES_N=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const DL_N=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
   const fechaLarga=DL_N[n.getDay()]+' '+n.getDate()+' de '+MESES_N[n.getMonth()]+' de '+n.getFullYear();
-  const msg='Buenas tardes, les informo que el personal de la Dirección de Climatología realizó teletrabajo el día de hoy, '+fechaLarga+'. Adjunto registro de asistencia para su referencia.';
+  const msg='Por este medio, les comparto el informe correspondiente al personal de la Dirección de Climatología que realiza teletrabajo el día de hoy, '+fechaLarga+' Asimismo, se remite el registro de salida correspondiente al día de ayer. Adjunto registro de asistencia para su referencia.';
   const preview=document.getElementById('cfg-msg-preview');
   preview.textContent=msg;preview.style.display='block';
   navigator.clipboard.writeText(msg).then(()=>{
