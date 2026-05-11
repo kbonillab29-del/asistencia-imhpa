@@ -1036,23 +1036,35 @@ function cfgGenPDF(){
 
   genPDFDirectoraRango(fechaInicio, fechaFin);
 }
-
 function cfgCopiarMensaje(){
-  const n=new Date();
-  const MESES_N=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  const DL_N=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-  const fechaLarga=DL_N[n.getDay()]+' '+n.getDate()+' de '+MESES_N[n.getMonth()]+' de '+n.getFullYear();
-  const msg='Por este medio, les comparto el informe correspondiente al personal de la Dirección de Climatología que realiza teletrabajo el día de hoy, '+fechaLarga+' Asimismo, se remite el registro de salida correspondiente al día de ayer. Adjunto registro de asistencia para su referencia.';
-  const preview=document.getElementById('cfg-msg-preview');
-  preview.textContent=msg;preview.style.display='block';
+  const n = new Date();
+  const MESES_N = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const DL_N = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+
+  const fechaLarga =
+    DL_N[n.getDay()] + ' ' +
+    n.getDate() + ' de ' +
+    MESES_N[n.getMonth()] + ' de ' +
+    n.getFullYear();
+
+  const msg =
+    'Por este medio, les comparto el informe correspondiente al personal de la Dirección de Climatología ' +
+    'que realiza teletrabajo el día de hoy, ' +
+    fechaLarga +
+    '. Asimismo, se remite el registro de salida correspondiente al día de ayer. ' +
+    'Adjunto registro de asistencia para su referencia.';
+
+  const preview = document.getElementById('cfg-msg-preview');
+  preview.textContent = msg;
+  preview.style.display = 'block';
+
   navigator.clipboard.writeText(msg).then(()=>{
-    document.getElementById('cfg-copy-ok').style.display='block';
-    setTimeout(()=>document.getElementById('cfg-copy-ok').style.display='none',3000);
+    document.getElementById('cfg-copy-ok').style.display = 'block';
+    setTimeout(()=>document.getElementById('cfg-copy-ok').style.display = 'none',3000);
   }).catch(()=>{
-    const range=document.createRange();range.selectNode(preview);
-    window.getSelection().removeAllRanges();window.getSelection().addRange(range);
-    alert('Selecciona el texto y copia manualmente (Ctrl+C).');
+    alert('No se pudo copiar automáticamente. Copia el texto manualmente.');
   });
+
 }
 
 async function enviarReporte(){
