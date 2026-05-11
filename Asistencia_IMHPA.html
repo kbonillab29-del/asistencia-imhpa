@@ -346,6 +346,17 @@ sincronizarPersonas();setSbActive(this)">
             <button class="btn-ent" onclick="marcar('entrada')">&#9654; Entrada</button>
             <button class="btn-sal" onclick="marcar('salida')">&#9632; Salida</button>
           </div>
+          <!-- OBSERVACIÓN OPCIONAL -->
+          <div style="margin-top:.75rem;">
+            <div style="font-size:12px;color:#555;margin-bottom:4px;">
+              Observación (opcional)
+            </div>
+            <textarea
+              id="obs-input"
+              placeholder="Ej: salida anticipada, cita médica, falla eléctrica…"
+              style="width:100%;min-height:48px;border:1px solid #ddd;border-radius:8px;padding:.5rem .6rem;font-size:13px;resize:none;"
+            ></textarea>
+          </div>
           <div class="err-msg" id="err-msg"></div>
           <div class="hist-lbl">Últimos registros guardados</div>
           <div id="ci-hist"></div>
@@ -708,16 +719,27 @@ function startClk(){updateClk();clkInt=setInterval(updateClk,1000);}
 function stopClk(){if(clkInt)clearInterval(clkInt);}
 function updateClk(){const n=new Date();document.getElementById('ci-clk').textContent=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;document.getElementById('ci-dt').textContent=`${DL[n.getDay()]}, ${n.getDate()} de ${MESES[n.getMonth()]} ${n.getFullYear()}`;}
 async function marcar(tipo){
+  const obs = document.getElementById('obs-input')?.value.trim() || '';
   const p=PERSONAS[pidx];const hora=horaActual();const fecha=hoy();
   document.getElementById('err-msg').style.display='none';
 
   // 1. Guardar local inmediatamente — la app responde sin esperar la red
-  if(!p.reg[fecha])p.reg[fecha]={e:'',s:''};
-  const horaNorm=normHora(hora)||hora;
-  if(tipo==='entrada')p.reg[fecha].e=horaNorm;
-  else p.reg[fecha].s=horaNorm;
-  guardarPersonas();
+if(!p.reg[fecha]) p.reg[fecha] = { e:'', s:'', o:'' };
 
+const horaNorm = normHora(hora) || hora;
+
+if(tipo === 'entrada') {
+  p.reg[fecha].e = horaNorm;
+} else {
+  p.reg[fecha].s = horaNorm;
+}
+
+if(obs) {
+  p.reg[fecha].o = obs;
+}
+
+guardarPersonas();
+  document.getElementById('obs-input').value = '';
   const ld=document.getElementById('loading');ld.style.display='flex';
   document.getElementById('loading-msg').textContent=tipo==='entrada'?'Registrando entrada...':'Registrando salida...';
 
@@ -725,10 +747,17 @@ async function marcar(tipo){
   let flowOk=false;
   try{
     const r=p.reg[fecha];
-    const params=new URLSearchParams({
-      accion:'marcar',nombre:p.nom,posicion:p.dir||'',tipo,hora,fecha,
-      horaEntrada:r.e||'',horaSalida:r.s||''
-    });
+    const params = new URLSearchParams({
+  accion: 'marcar',
+  nombre: p.nom,
+  posicion: p.dir || '',
+  tipo,
+  hora,
+  fecha,
+  horaEntrada: r.e || '',
+  horaSalida: r.s || '',
+  observacion: r.o || ''
+});
     const resp=await fetch(API_URL+'?'+params.toString());
     const data=await resp.json();
     flowOk=data.ok===true;
