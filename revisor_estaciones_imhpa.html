@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Revisor Semanal · IMHPA Climatología</title>
+<title>Revisor IMHPA · Climatología</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -24,11 +24,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .sec-lbl{font-size:9px;font-family:var(--mono);color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
 .sec-lbl .n{background:var(--accent);color:#000;width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0;}
 label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600;}
-input,textarea{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px 10px;outline:none;transition:border-color .2s;}
-input:focus,textarea:focus{border-color:var(--accent);}
+input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px 10px;outline:none;transition:border-color .2s;}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 textarea{resize:vertical;min-height:60px;}
+select option{background:var(--panel2);}
 .field{margin-bottom:8px;}
 .hr{border:none;border-top:1px solid var(--border);}
+
+/* MODE TOGGLE */
+.mode-toggle{display:flex;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;}
+.mode-btn{flex:1;padding:7px 10px;border:none;border-radius:6px;font-family:var(--sans);font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);transition:all .2s;}
+.mode-btn.active{background:var(--accent);color:#000;}
+
 .drop{border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;position:relative;transition:all .2s;}
 .drop:hover,.drop.over{border-color:var(--accent);background:rgba(26,157,255,.04);}
 .drop input{position:absolute;inset:0;opacity:0;cursor:pointer;}
@@ -84,6 +91,10 @@ textarea{resize:vertical;min-height:60px;}
 .bdg{display:inline-block;padding:1px 7px;border-radius:3px;font-size:9px;font-family:var(--mono);font-weight:700;}
 .b-r{background:rgba(239,68,68,.15);color:var(--red);}
 .b-o{background:rgba(249,115,22,.15);color:var(--orange);}
+
+/* MODE badge */
+.mode-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(26,157,255,.15);border:1px solid rgba(26,157,255,.35);border-radius:5px;padding:3px 8px;font-size:9px;font-family:var(--mono);color:var(--accent);margin-bottom:8px;}
+
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -104,7 +115,26 @@ textarea{resize:vertical;min-height:60px;}
 <aside class="sb">
   <div>
     <div class="sec-lbl"><span class="n">1</span> Período</div>
-    <div class="field"><label>Semana</label><input type="week" id="semana"></div>
+
+    <!-- MODE SELECTOR -->
+    <div class="field">
+      <label>Modo de revisión</label>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="btnSemana" onclick="setMode('semana')">📅 Semana</button>
+        <button class="mode-btn" id="btnMes" onclick="setMode('mes')">🗓️ Mes</button>
+      </div>
+    </div>
+
+    <div class="field" id="fieldSemana">
+      <label>Semana</label>
+      <input type="week" id="semana">
+    </div>
+
+    <div class="field" id="fieldMes" style="display:none">
+      <label>Mes</label>
+      <input type="month" id="mes">
+    </div>
+
     <div class="field"><label>Técnico(a)</label><input type="text" id="revisor" placeholder="Nombre completo"></div>
     <div class="field"><label>N° Informe</label><input type="text" id="numInf" placeholder="SR-SAT-2026-014"></div>
   </div>
@@ -142,18 +172,18 @@ textarea{resize:vertical;min-height:60px;}
   <div class="empty" id="emptyState">
     <div class="empty-icon">🛰️</div>
     <h2>Sin informe generado</h2>
-    <p>Carga el CSV y presiona <strong>Generar Informe Word</strong>.<br><br>
-    La herramienta detecta códigos de error del sensor, agrega datos por hora, aplica rangos climáticos por región de Panamá y genera el informe horizontal con gráficas integradas en la tabla.</p>
+    <p>Selecciona el modo <strong>Semana</strong> o <strong>Mes</strong>, carga el CSV y presiona <strong>Generar Informe Word</strong>.<br><br>
+    En modo mensual los datos se agregan por día (diario). Se aplican los mismos rangos climáticos por región y se generan gráficas de evolución diaria.</p>
   </div>
 
   <div class="prog" id="progArea">
     <div class="prog-card">
-      <div class="prog-title">⚙️ Procesando...</div>
+      <div class="prog-title" id="progTitle">⚙️ Procesando...</div>
       <div class="step-list">
         <div class="step" id="s1"><span class="step-ico">⏳</span> Leyendo CSV · filtrando códigos de error del sensor</div>
-        <div class="step" id="s2"><span class="step-ico">⏳</span> Agregando por hora (∑ acumulado / x̄ promedio)</div>
+        <div class="step" id="s2"><span class="step-ico">⏳</span> <span id="s2txt">Agregando por hora (∑ acumulado / x̄ promedio)</span></div>
         <div class="step" id="s3"><span class="step-ico">⏳</span> Validando rangos por región · detectando anomalías</div>
-        <div class="step" id="s4"><span class="step-ico">⏳</span> Generando gráficas horarias</div>
+        <div class="step" id="s4"><span class="step-ico">⏳</span> <span id="s4txt">Generando gráficas horarias</span></div>
         <div class="step" id="s5"><span class="step-ico">⏳</span> Análisis IA</div>
         <div class="step" id="s6"><span class="step-ico">⏳</span> Construyendo informe Word horizontal</div>
       </div>
@@ -185,41 +215,60 @@ textarea{resize:vertical;min-height:60px;}
 
 <script>
 // ═══════════════════════════════════════════════════
-// SENSOR ERROR CODES — valores imposibles del datalogger
+// MODE MANAGEMENT
+// ═══════════════════════════════════════════════════
+let currentMode = 'semana'; // 'semana' | 'mes'
+
+function setMode(mode){
+  currentMode = mode;
+  document.getElementById('btnSemana').classList.toggle('active', mode==='semana');
+  document.getElementById('btnMes').classList.toggle('active', mode==='mes');
+  document.getElementById('fieldSemana').style.display = mode==='semana'?'block':'none';
+  document.getElementById('fieldMes').style.display = mode==='mes'?'block':'none';
+  // Update s2/s4 text labels
+  document.getElementById('s2txt').textContent = mode==='mes'
+    ? 'Agregando por día (∑ acumulado / x̄ promedio)'
+    : 'Agregando por hora (∑ acumulado / x̄ promedio)';
+  document.getElementById('s4txt').textContent = mode==='mes'
+    ? 'Generando gráficas de evolución diaria'
+    : 'Generando gráficas horarias';
+  updateNumInf();
+}
+
+function updateNumInf(){
+  const hoy = new Date();
+  if(currentMode==='semana'){
+    document.getElementById('numInf').value = `SR-SAT-${hoy.getFullYear()}-${String(getWeekNum(hoy)).padStart(3,'0')}`;
+  } else {
+    const mes = String(hoy.getMonth()+1).padStart(2,'0');
+    document.getElementById('numInf').value = `MR-SAT-${hoy.getFullYear()}-${mes}`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SENSOR ERROR CODES
 // ═══════════════════════════════════════════════════
 const ERROR_CODES = [-1310.7, -892.6, -897.5, -891.4, -9999, -999, -99, 9999];
 function isErrorCode(val){
   if(isNaN(val)) return true;
-  for(const ec of ERROR_CODES){
-    if(Math.abs(val - ec) < 0.5) return true;
-  }
+  for(const ec of ERROR_CODES){if(Math.abs(val - ec) < 0.5) return true;}
   return false;
 }
 
-// ═══════════════════════════════════════════════════
-// REGION BY STATION CODE — for rainfall thresholds
-// Caribe: 91xxx, 93xxx, 95xxx, 117xxx, 118xxx (Colón/Bocas)
-// Pacifico seco: 120xxx-130xxx (Azuero/Veraguas costa)
-// Pacifico humedo/Highland: 102xxx-116xxx, 132xxx+
-// ═══════════════════════════════════════════════════
 function getRegion(codigo){
   const c = parseInt(codigo);
-  if(c >= 91000 && c <= 95999) return 'caribe';     // Bocas del Toro
-  if(c >= 117000 && c <= 118999) return 'caribe';   // Colón
-  if(c >= 148000 && c <= 162999) return 'caribe';   // Darién Caribe
-  if(c >= 122000 && c <= 130999) return 'seco';     // Azuero
-  if(c >= 120000 && c <= 121999) return 'seco';     // Veraguas costa
-  return 'humedo'; // Default: Chiriquí, Coclé, Panamá, etc.
+  if(c >= 91000 && c <= 95999) return 'caribe';
+  if(c >= 117000 && c <= 118999) return 'caribe';
+  if(c >= 148000 && c <= 162999) return 'caribe';
+  if(c >= 122000 && c <= 130999) return 'seco';
+  if(c >= 120000 && c <= 121999) return 'seco';
+  return 'humedo';
 }
 
-// ═══════════════════════════════════════════════════
-// VARIABLES CONFIG
-// precipMax varies by region — defined in validation
-// ═══════════════════════════════════════════════════
 const VARIABLES = [
   { key:'temperatura_c',        label:'Temperatura',         unit:'°C',    min:5,   max:45,   accumulate:false },
   { key:'humedad_relativa_pct', label:'Humedad Relativa',    unit:'%',     min:20,  max:100,  accumulate:false },
-  { key:'precipitacion_mm',     label:'Precipitación',       unit:'mm',    min:0,   max:null, accumulate:true  }, // max set per region
+  { key:'precipitacion_mm',     label:'Precipitación',       unit:'mm',    min:0,   max:null, accumulate:true  },
   { key:'presion_hpa',          label:'Presión Barométrica', unit:'hPa',   min:950, max:1050, accumulate:false },
   { key:'radiacion_wm2',        label:'Radiación Solar',     unit:'W/m²',  min:0,   max:1400, accumulate:false },
   { key:'brillo_solar_h',       label:'Brillo Solar',        unit:'h',     min:0,   max:14,   accumulate:true  },
@@ -230,8 +279,13 @@ const VARIABLES = [
   { key:'relacion_mezcla_gkg',  label:'Relación de Mezcla',  unit:'g/kg',  min:0,   max:30,   accumulate:false },
 ];
 
-// Precipitation max by region (hourly accumulated)
-const PRECIP_MAX = { caribe: 80, humedo: 60, seco: 40 };
+// Precipitation max — hourly vs daily
+const PRECIP_MAX_H = { caribe: 80, humedo: 60, seco: 40 };
+const PRECIP_MAX_D = { caribe: 250, humedo: 200, seco: 120 };  // daily accumulations
+
+function getPrecipMax(region, mode){
+  return mode==='mes' ? (PRECIP_MAX_D[region]||200) : (PRECIP_MAX_H[region]||60);
+}
 
 let csvData = [];
 
@@ -240,7 +294,8 @@ const hoy = new Date();
 document.getElementById('topDate').textContent =
   hoy.toLocaleDateString('es-PA',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toUpperCase();
 document.getElementById('semana').value = isoWeekStr(hoy);
-document.getElementById('numInf').value = `SR-SAT-${hoy.getFullYear()}-${String(getWeekNum(hoy)).padStart(3,'0')}`;
+document.getElementById('mes').value = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+updateNumInf();
 
 function isoWeekStr(d){const w=getWeekNum(d);return `${d.getFullYear()}-W${String(w).padStart(2,'0')}`;}
 function getWeekNum(d){d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.ceil((((d-ys)/86400000)+1)/7);}
@@ -264,7 +319,6 @@ function parseCSV(file){
       headers.forEach((h,j)=>row[h]=vals[j]??'');
       const cod=row.codigo_estacion;
       if(!cod||cod===''||cod.toLowerCase()==='null'||cod.toLowerCase()==='nan') continue;
-      // Use code as name if name is null
       if(!row.nombre_estacion||row.nombre_estacion===''||row.nombre_estacion.toLowerCase()==='null'||row.nombre_estacion.toLowerCase()==='nan'){
         row.nombre_estacion=cod;
       }
@@ -279,7 +333,7 @@ function parseCSV(file){
 }
 
 // ═══════════════════════════════════════════════════
-// HOURLY AGGREGATION
+// AGGREGATION — hourly (semana) or daily (mes)
 // ═══════════════════════════════════════════════════
 function parseHour(fh){
   const s=String(fh).trim();
@@ -287,23 +341,30 @@ function parseHour(fh){
   return m?`${m[1]} ${m[2]}:00`:s.substring(0,13);
 }
 
-function aggregateHourly(rows, region){
-  const precipMax = PRECIP_MAX[region] || 60;
-  const byHour={};
+function parseDay(fh){
+  const s=String(fh).trim();
+  const m=s.match(/(\d{4}-\d{2}-\d{2})/);
+  return m?m[1]:s.substring(0,10);
+}
+
+function aggregateData(rows, region, mode){
+  const precipMax = getPrecipMax(region, mode);
+  const keyFn = mode==='mes' ? parseDay : parseHour;
+  const byPeriod={};
   rows.forEach(row=>{
-    const h=parseHour(row.fecha_hora);
-    if(!byHour[h]) byHour[h]={hora:h,vals:{}};
+    const k=keyFn(row.fecha_hora);
+    if(!byPeriod[k]) byPeriod[k]={period:k,vals:{}};
     VARIABLES.forEach(v=>{
       const raw=parseFloat(row[v.key]);
-      if(isNaN(raw)||isErrorCode(raw)) return; // skip error codes
-      if(!byHour[h].vals[v.key]) byHour[h].vals[v.key]=[];
-      byHour[h].vals[v.key].push(raw);
+      if(isNaN(raw)||isErrorCode(raw)) return;
+      if(!byPeriod[k].vals[v.key]) byPeriod[k].vals[v.key]=[];
+      byPeriod[k].vals[v.key].push(raw);
     });
   });
-  return Object.values(byHour)
-    .sort((a,b)=>a.hora.localeCompare(b.hora))
+  return Object.values(byPeriod)
+    .sort((a,b)=>a.period.localeCompare(b.period))
     .map(h=>{
-      const agg={hora:h.hora};
+      const agg={period:h.period};
       VARIABLES.forEach(v=>{
         const vals=h.vals[v.key];
         if(!vals||!vals.length){agg[v.key]=null;return;}
@@ -318,18 +379,14 @@ function aggregateHourly(rows, region){
 // ═══════════════════════════════════════════════════
 // VALIDATION
 // ═══════════════════════════════════════════════════
-function validateData(){
+function validateData(mode){
   const byStation={};
   csvData.forEach(row=>{
     const cod=row.codigo_estacion;
-    if(!byStation[cod]) byStation[cod]={
-      codigo:cod, nombre:row.nombre_estacion,
-      region:getRegion(cod).trim(), rows:[]
-    };
+    if(!byStation[cod]) byStation[cod]={codigo:cod, nombre:row.nombre_estacion, region:getRegion(cod).trim(), rows:[]};
     byStation[cod].rows.push(row);
   });
 
-  // Count error code rows per station
   const errorStats={};
   csvData.forEach(row=>{
     VARIABLES.forEach(v=>{
@@ -341,12 +398,14 @@ function validateData(){
     });
   });
 
+  // Threshold for "constant" detection — 24h for semana, 7 days for mes
+  const constantThreshold = mode==='mes' ? 7 : 24;
+
   return Object.values(byStation).map(st=>{
-    const precipMax=PRECIP_MAX[st.region]||60;
-    const hourly=aggregateHourly(st.rows, st.region);
+    const precipMax=getPrecipMax(st.region, mode);
+    const aggregated=aggregateData(st.rows, st.region, mode);
     const anomalies=[];
 
-    // Check error codes
     VARIABLES.forEach(v=>{
       const errCount=errorStats[st.codigo+':'+v.key]||0;
       if(errCount>0){
@@ -354,61 +413,58 @@ function validateData(){
           variable:v, tipo:'Error de sensor',
           valor:`${errCount} registros con código de error`,
           descripcion:`${errCount} valores con código de error del datalogger (-1310.7 / -89x / -9999)`,
-          hourlyAll:hourly, anomalyPts:[], isError:true, errCount
+          aggregatedAll:aggregated, anomalyPts:[], isError:true, errCount
         });
       }
     });
 
     VARIABLES.forEach(v=>{
       const vMax = v.key==='precipitacion_mm' ? precipMax : v.max;
-      if(vMax===null&&v.min===0) return; // skip if no max defined somehow
-      const pts=hourly.map(h=>({hora:h.hora,val:h[v.key]})).filter(p=>p.val!==null&&p.val!==undefined);
+      if(vMax===null&&v.min===0) return;
+      const pts=aggregated.map(h=>({period:h.period,val:h[v.key]})).filter(p=>p.val!==null&&p.val!==undefined);
       if(!pts.length) return;
 
       const outPts=pts.filter(p=>p.val<v.min||(vMax!==null&&p.val>vMax));
       const unique=new Set(pts.map(p=>Math.round(p.val*10))).size;
-      const isConstant=pts.length>24&&unique===1&&v.key!=='precipitacion_mm'; // rain can be constantly 0
+      const isConstant=pts.length>constantThreshold&&unique===1&&v.key!=='precipitacion_mm';
 
       if(outPts.length>0){
         const maxVal=outPts.reduce((a,b)=>Math.abs(b.val-(b.val<v.min?v.min:vMax))>Math.abs(a.val-(a.val<v.min?v.min:vMax))?b:a);
         const isSingleSpike = outPts.length===1;
         anomalies.push({
           variable:v, tipo: isSingleSpike ? 'Pico aislado' : 'Fuera de rango',
-          valor:`${outPts.length} hora(s) · peor: ${maxVal.val.toFixed(1)} ${v.unit}`,
-          descripcion:`${outPts.length} hora(s) fuera de ${v.min}–${vMax} ${v.unit}. Valor extremo: ${maxVal.val.toFixed(1)} ${v.unit}`,
-          hourlyAll:hourly, anomalyPts:outPts,
+          valor:`${outPts.length} ${mode==='mes'?'día(s)':'hora(s)'} · peor: ${maxVal.val.toFixed(1)} ${v.unit}`,
+          descripcion:`${outPts.length} ${mode==='mes'?'día(s)':'hora(s)'} fuera de ${v.min}–${vMax} ${v.unit}. Valor extremo: ${maxVal.val.toFixed(1)} ${v.unit}`,
+          aggregatedAll:aggregated, anomalyPts:outPts,
           vMin:v.min, vMax, isError:false, isSingleSpike,
           outCount:outPts.length,
-          spikeVal: maxVal.val, spikeHora: maxVal.hora
+          spikeVal: maxVal.val, spikePeriod: maxVal.period
         });
       } else if(isConstant){
         anomalies.push({
           variable:v, tipo:'Valor constante',
           valor:`${pts[0].val.toFixed(2)} ${v.unit} sin variación`,
-          descripcion:`Valor constante de ${pts[0].val.toFixed(2)} ${v.unit} en ${pts.length} horas consecutivas. Posible fallo de sensor.`,
-          hourlyAll:hourly, anomalyPts:[], isError:false,
+          descripcion:`Valor constante de ${pts[0].val.toFixed(2)} ${v.unit} en ${pts.length} ${mode==='mes'?'días':'horas'} consecutivos. Posible fallo de sensor.`,
+          aggregatedAll:aggregated, anomalyPts:[], isError:false,
           outCount:0
         });
       }
     });
 
-    return {
-      codigo:st.codigo, nombre:st.nombre, region:st.region,
-      anomalies, ok:anomalies.length===0
-    };
+    return {codigo:st.codigo, nombre:st.nombre, region:st.region, anomalies, ok:anomalies.length===0};
   });
 }
 
 // ═══════════════════════════════════════════════════
-// CHART — white bg, clean axes, minimal labels
+// CHART — works for both hourly and daily data
 // ═══════════════════════════════════════════════════
-function generateChart(hourlyData, variable, anomalyPts, vMin, vMax){
+function generateChart(aggregatedData, variable, anomalyPts, vMin, vMax, mode){
   const canvas=document.createElement('canvas');
   canvas.width=760; canvas.height=200;
   const ctx=canvas.getContext('2d');
 
-  const pts=hourlyData
-    .map(h=>({hora:h.hora,v:h[variable.key]}))
+  const pts=aggregatedData
+    .map(h=>({period:h.period,v:h[variable.key]}))
     .filter(p=>p.v!==null&&p.v!==undefined);
   if(pts.length<2) return null;
 
@@ -424,103 +480,121 @@ function generateChart(hourlyData, variable, anomalyPts, vMin, vMax){
   const toX=i=>mx+(i/(pts.length-1||1))*pw;
   const toY=v=>my+ph-((v-lo)/(hi-lo))*ph;
 
-  // White bg
-  ctx.fillStyle='#ffffff';
-  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
 
-  // Grid
   ctx.strokeStyle='#eeeeee';ctx.lineWidth=1;
-  for(let i=0;i<=4;i++){
-    const y=my+(ph/4)*i;
-    ctx.beginPath();ctx.moveTo(mx,y);ctx.lineTo(W-mr,y);ctx.stroke();
-  }
+  for(let i=0;i<=4;i++){const y=my+(ph/4)*i;ctx.beginPath();ctx.moveTo(mx,y);ctx.lineTo(W-mr,y);ctx.stroke();}
 
-  // OMM range lines only (no fill band — cleaner)
   const effectiveMax=vMax||variable.max;
   ctx.strokeStyle='#22c55e';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  if(effectiveMax!==null&&effectiveMax<=hi&&effectiveMax>=lo){
-    ctx.beginPath();ctx.moveTo(mx,toY(effectiveMax));ctx.lineTo(W-mr,toY(effectiveMax));ctx.stroke();
-  }
-  if(variable.min>=lo&&variable.min<=hi){
-    ctx.beginPath();ctx.moveTo(mx,toY(variable.min));ctx.lineTo(W-mr,toY(variable.min));ctx.stroke();
-  }
+  if(effectiveMax!==null&&effectiveMax<=hi&&effectiveMax>=lo){ctx.beginPath();ctx.moveTo(mx,toY(effectiveMax));ctx.lineTo(W-mr,toY(effectiveMax));ctx.stroke();}
+  if(variable.min>=lo&&variable.min<=hi){ctx.beginPath();ctx.moveTo(mx,toY(variable.min));ctx.lineTo(W-mr,toY(variable.min));ctx.stroke();}
   ctx.setLineDash([]);
 
-  // Data line
-  ctx.strokeStyle='#1565c0';ctx.lineWidth=1.8;
-  ctx.beginPath();
-  pts.forEach((p,i)=>i===0?ctx.moveTo(toX(i),toY(p.v)):ctx.lineTo(toX(i),toY(p.v)));
-  ctx.stroke();
-
-  // Anomaly points — only mark extremes, not every point
-  const anomSet=new Set((anomalyPts||[]).map(a=>a.hora));
-  const anomPtsOnChart=pts.filter(p=>p.v<variable.min||(effectiveMax!==null&&p.v>effectiveMax));
-
-  if(anomPtsOnChart.length>0 && anomPtsOnChart.length<=10){
-    // Few anomalies — mark each with dot only (no value label)
-    anomPtsOnChart.forEach((p,i)=>{
-      const xi=pts.findIndex(pp=>pp.hora===p.hora);
-      ctx.fillStyle='#ef4444';
-      ctx.beginPath();ctx.arc(toX(xi),toY(p.v),4,0,Math.PI*2);ctx.fill();
-      // Only label the worst value
-      if(i===0){
-        ctx.fillStyle='#c0392b';ctx.font='bold 9px IBM Plex Mono,monospace';
-        const lbl=p.v.toFixed(1);
-        const lx=Math.min(toX(xi)+4, W-mr-28);
-        const ly=toY(p.v)>my+16?toY(p.v)-6:toY(p.v)+14;
-        ctx.fillText(lbl,lx,ly);
-      }
-    });
-  } else if(anomPtsOnChart.length>10){
-    // Many anomalies — just color the line segments red, no dots
-    ctx.strokeStyle='rgba(239,68,68,0.7)';ctx.lineWidth=2;
-    ctx.beginPath();
-    let inAnom=false;
+  // For monthly mode: draw bars for precipitation, lines for others
+  if(mode==='mes' && variable.key==='precipitacion_mm'){
+    const barW=Math.max(2, pw/pts.length*0.7);
     pts.forEach((p,i)=>{
+      const x=toX(i)-barW/2;
+      const yVal=toY(p.v);
+      const yBase=toY(0);
       const isAnom=p.v<variable.min||(effectiveMax!==null&&p.v>effectiveMax);
-      if(isAnom){
-        if(!inAnom){ctx.moveTo(toX(i),toY(p.v));inAnom=true;}
-        else ctx.lineTo(toX(i),toY(p.v));
-      } else { inAnom=false; }
+      ctx.fillStyle=isAnom?'rgba(239,68,68,0.7)':'rgba(21,101,192,0.6)';
+      ctx.fillRect(x,yVal,barW,yBase-yVal);
     });
+  } else {
+    ctx.strokeStyle='#1565c0';ctx.lineWidth=1.8;
+    ctx.beginPath();
+    pts.forEach((p,i)=>i===0?ctx.moveTo(toX(i),toY(p.v)):ctx.lineTo(toX(i),toY(p.v)));
     ctx.stroke();
+
+    const anomPtsOnChart=pts.filter(p=>p.v<variable.min||(effectiveMax!==null&&p.v>effectiveMax));
+    if(anomPtsOnChart.length>0&&anomPtsOnChart.length<=10){
+      anomPtsOnChart.forEach((p,i)=>{
+        const xi=pts.findIndex(pp=>pp.period===p.period);
+        ctx.fillStyle='#ef4444';
+        ctx.beginPath();ctx.arc(toX(xi),toY(p.v),4,0,Math.PI*2);ctx.fill();
+        if(i===0){
+          ctx.fillStyle='#c0392b';ctx.font='bold 9px IBM Plex Mono,monospace';
+          const lbl=p.v.toFixed(1);
+          const lx=Math.min(toX(xi)+4,W-mr-28);
+          const ly=toY(p.v)>my+16?toY(p.v)-6:toY(p.v)+14;
+          ctx.fillText(lbl,lx,ly);
+        }
+      });
+    } else if(anomPtsOnChart.length>10){
+      ctx.strokeStyle='rgba(239,68,68,0.7)';ctx.lineWidth=2;ctx.beginPath();
+      let inAnom=false;
+      pts.forEach((p,i)=>{
+        const isAnom=p.v<variable.min||(effectiveMax!==null&&p.v>effectiveMax);
+        if(isAnom){if(!inAnom){ctx.moveTo(toX(i),toY(p.v));inAnom=true;}else ctx.lineTo(toX(i),toY(p.v));}
+        else{inAnom=false;}
+      });
+      ctx.stroke();
+    }
   }
 
-  // Axes
   ctx.strokeStyle='#bbbbbb';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(mx,my);ctx.lineTo(mx,my+ph);ctx.lineTo(W-mr,my+ph);ctx.stroke();
 
-  // Y labels
   ctx.fillStyle='#777';ctx.font='9px IBM Plex Mono,monospace';
-  for(let i=0;i<=4;i++){
-    const v=lo+((hi-lo)/4)*(4-i);
-    ctx.fillText(v.toFixed(1),1,my+(ph/4)*i+4);
-  }
+  for(let i=0;i<=4;i++){const v=lo+((hi-lo)/4)*(4-i);ctx.fillText(v.toFixed(1),1,my+(ph/4)*i+4);}
 
-  // X labels — dates only, spaced
+  // X labels
   const step=Math.max(1,Math.floor(pts.length/7));
   ctx.fillStyle='#999';ctx.font='9px IBM Plex Mono,monospace';
   for(let i=0;i<pts.length;i+=step){
-    const lbl=(pts[i].hora||'').replace(':00','').replace(/^\d{4}-/,'');
+    // For monthly: show only day portion (MM-DD)
+    let lbl=(pts[i].period||'');
+    if(mode==='mes') lbl=lbl.replace(/^\d{4}-/,''); // strip year → MM-DD
+    else lbl=lbl.replace(':00','').replace(/^\d{4}-/,'');
     ctx.save();ctx.translate(toX(i),H-3);ctx.rotate(-0.4);ctx.fillText(lbl,-12,0);ctx.restore();
   }
+
+  // Label for mode
+  ctx.fillStyle='#999';ctx.font='italic 8px IBM Plex Mono,monospace';
+  ctx.fillText(mode==='mes'?'Escala diaria':'Escala horaria', mx+2, my+10);
 
   return canvas.toDataURL('image/png');
 }
 
 // ═══════════════════════════════════════════════════
+// PERIOD LABEL HELPERS
+// ═══════════════════════════════════════════════════
+function getPeriodLabel(mode){
+  if(mode==='semana'){
+    const v=document.getElementById('semana').value;
+    return v.replace('-W',' · Semana ');
+  } else {
+    const v=document.getElementById('mes').value;
+    if(!v) return '—';
+    const [yr,mo]=v.split('-');
+    const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    return `${meses[parseInt(mo)-1]} ${yr}`;
+  }
+}
+
+function getPeriodValue(){
+  return currentMode==='semana'
+    ? document.getElementById('semana').value
+    : document.getElementById('mes').value;
+}
+
+// ═══════════════════════════════════════════════════
 // AI
 // ═══════════════════════════════════════════════════
-async function runAI(results,semana,revisor,contexto){
+async function runAI(results,semana,revisor,contexto,mode){
   const estProblemas=results.filter(e=>e.anomalies.length>0);
   const summary=estProblemas
-    .sort((a,b)=>b.anomalies.length-a.anomalies.length)
-    .slice(0,10)
+    .sort((a,b)=>b.anomalies.length-a.anomalies.length).slice(0,10)
     .map(e=>`${e.codigo}(${e.nombre})[${e.region}]: `+
-      e.anomalies.slice(0,2).map(a=>`${a.variable.label} ${a.tipo}`).join(', '))
-    .join('\n');
+      e.anomalies.slice(0,2).map(a=>`${a.variable.label} ${a.tipo}`).join(', ')).join('\n');
 
-  const prompt=`Climatólogo IMHPA Panamá. Análisis técnico breve en español.\nSEMANA:${semana} REVISOR:${revisor||'—'} CONTEXTO:${contexto||'ninguno'}\n${results.length} estaciones (datos por hora, filtrados códigos error sensor, rangos por región Panamá).\n${estProblemas.length} estaciones con anomalías.\nPRINCIPALES:\n${summary||'Sin anomalías.'}\nJSON sin markdown:{"resumen":"2 oraciones.","condiciones":"1 oración contexto meteorológico Panamá semana indicada.","anomalias":[{"codigo":"","nombre":"","variable":"","tipo":"","hipotesis":"1 oración técnica","accion":"1 línea concreta"}],"acciones_inmediatas":["máx 3"],"conclusion":"1 oración."}`;
+  const modeNote = mode==='mes'
+    ? 'Datos agregados por DÍA (análisis mensual). Umbrales precipitación: Caribe ≤250mm/d, Pacífico húmedo ≤200mm/d, Pacífico seco ≤120mm/d.'
+    : 'Datos agregados por HORA (análisis semanal).';
+
+  const prompt=`Climatólogo IMHPA Panamá. Análisis técnico breve en español.\nPERÍODO:${semana} REVISOR:${revisor||'—'} CONTEXTO:${contexto||'ninguno'}\n${modeNote}\n${results.length} estaciones. ${estProblemas.length} estaciones con anomalías.\nPRINCIPALES:\n${summary||'Sin anomalías.'}\nJSON sin markdown:{"resumen":"2 oraciones.","condiciones":"1 oración contexto meteorológico Panamá período indicado.","anomalias":[{"codigo":"","nombre":"","variable":"","tipo":"","hipotesis":"1 oración técnica","accion":"1 línea concreta"}],"acciones_inmediatas":["máx 3"],"conclusion":"1 oración."}`;
 
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),30000);
@@ -533,27 +607,28 @@ async function runAI(results,semana,revisor,contexto){
     const data=await resp.json();
     const raw=data.content.map(b=>b.text||'').join('');
     try{return JSON.parse(raw.replace(/```json|```/g,'').trim());}
-    catch{return fallbackAI(estProblemas,results,semana);}
-  }catch(err){clearTimeout(t);return fallbackAI(estProblemas,results,semana);}
+    catch{return fallbackAI(estProblemas,results,semana,mode);}
+  }catch(err){clearTimeout(t);return fallbackAI(estProblemas,results,semana,mode);}
 }
 
-function fallbackAI(estProblemas,results,semana){
+function fallbackAI(estProblemas,results,semana,mode){
   const anomalias=estProblemas.sort((a,b)=>b.anomalies.length-a.anomalies.length).slice(0,20)
     .flatMap(e=>e.anomalies.slice(0,2).map(a=>({
       codigo:String(e.codigo), nombre:e.nombre||String(e.codigo),
       variable:a.variable.label, tipo:a.tipo,
-      hipotesis:a.tipo==='Error de sensor'?'Código de error del datalogger (-1310.7 / -89x). Sensor desconectado o fallo de transmisión.':
-                a.tipo==='Valor constante'?`Sensor con valor fijo sin variación. Posible bloqueo o saturación.`:
-                a.tipo==='Pico aislado'?`Pico puntual de ${a.variable} reportado como nota al pie.`:
-                `${a.variable} fuera del rango regional (${e.region}): ${a.valor}.`,
+      hipotesis:a.tipo==='Error de sensor'?'Código de error del datalogger. Sensor desconectado o fallo de transmisión.':
+                a.tipo==='Valor constante'?'Sensor con valor fijo sin variación. Posible bloqueo o saturación.':
+                a.tipo==='Pico aislado'?`Pico puntual de ${a.variable.label} reportado.`:
+                `${a.variable.label} fuera del rango regional: ${a.valor}.`,
       accion:a.tipo==='Error de sensor'?'Verificar conexión del sensor y enlace satelital.':
              a.tipo==='Valor constante'?'Inspeccionar y recalibrar sensor.':
-             a.tipo==='Pico aislado'?'Monitorear próxima semana. Si se repite, revisar sensor.':
+             a.tipo==='Pico aislado'?'Monitorear próximo período. Si se repite, revisar sensor.':
              'Contrastar con estaciones vecinas y revisar calibración.'
     })));
   const pct=Math.round((results.length-estProblemas.length)/results.length*100);
+  const unidad = mode==='mes' ? 'mes' : 'semana';
   return{
-    resumen:`Revisión semana ${semana}: ${results.length} estaciones, ${estProblemas.length} con anomalías. Red al ${pct}% de operatividad.`,
+    resumen:`Revisión ${unidad} ${semana}: ${results.length} estaciones procesadas, ${estProblemas.length} con anomalías. Red al ${pct}% de operatividad.`,
     condiciones:'Condiciones meteorológicas variables para el período en Panamá.',
     anomalias,
     acciones_inmediatas:[
@@ -566,64 +641,61 @@ function fallbackAI(estProblemas,results,semana){
 }
 
 // ═══════════════════════════════════════════════════
-// WORD — landscape, charts embedded in table
+// WORD BUILDER — adaptado para semana y mes
 // ═══════════════════════════════════════════════════
-function buildWord(results, aiData, chartMap, semana, revisor, numInf){
+function buildWord(results, aiData, chartMap, semana, revisor, numInf, mode){
   const estOk=results.filter(e=>e.ok).length;
   const estErr=results.filter(e=>!e.ok).length;
   const totalAnom=results.reduce((s,e)=>s+e.anomalies.length,0);
   const fecha=new Date().toLocaleDateString('es-PA',{year:'numeric',month:'long',day:'numeric'});
-  const semStr=semana.replace('-W',' · Semana ');
   const ai=aiData;
+  const modeLabel = mode==='mes' ? 'MENSUAL' : 'SEMANAL';
+  const periodoLabel = mode==='mes' ? `Mes: ${getPeriodLabel(mode)}` : `Semana: ${semana.replace('-W',' · Semana ')}`;
+  const unidadTiempo = mode==='mes' ? 'día(s)' : 'hora(s)';
 
-  // Separate single spikes from main anomalies
+  // Methodology note
+  const metodNote = mode==='mes'
+    ? 'Datos agregados por día (∑ acumulado: Precipitación, Brillo Solar · x̄ promedio: resto). Umbrales diarios por región: Caribe (lluvia ≤250mm/d), Pacífico húmedo (≤200mm/d), Pacífico seco/Azuero (≤120mm/d). Temperatura: 5–45°C. Códigos de error del datalogger (-1310.7, -89x, -9999) excluidos. Referencia: OMM-N°8 (2018).'
+    : 'Datos agregados por hora (∑ acumulado: Precipitación, Brillo Solar · x̄ promedio: resto). Rangos por región: Caribe (lluvia ≤80mm/h), Pacífico húmedo (≤60mm/h), Pacífico seco/Azuero (≤40mm/h). Temperatura: 5–45°C. Códigos de error del datalogger (-1310.7, -89x, -9999) excluidos. Referencia: OMM-N°8 (2018).';
+
   const mainAnomalias = (ai.anomalias||[]).filter(a=>a.tipo!=='Pico aislado'&&a.tipo!=='Error de sensor');
 
-  // Collect spikes directly from results
   const spikeNotes = [];
   results.forEach(st=>{
     st.anomalies.filter(an=>an.isSingleSpike).forEach(an=>{
       spikeNotes.push({
         codigo:st.codigo, nombre:st.nombre,
         variable:an.variable.label, unit:an.variable.unit,
-        val:an.spikeVal, hora:an.spikeHora
+        val:an.spikeVal, period:an.spikePeriod
       });
     });
   });
 
-  // Collect error sensor records — find first/last occurrence per station+variable
   const errorNotes = [];
   const errorSeen = {};
   results.forEach(st=>{
     st.anomalies.filter(an=>an.isError).forEach(an=>{
-      // Find first and last hour with error code in raw data
       const key = st.codigo+'::'+an.variable.key;
       if(errorSeen[key]) return;
       errorSeen[key] = true;
-      // Get hourly data to find first error hour
-      const hourlyRaw = an.hourlyAll || [];
-      // Find hours where all sub-values were error codes (null after filtering)
-      // Use raw csvData to find error timestamps
       const errRows = csvData.filter(r=>
-        r.codigo_estacion==st.codigo &&
-        isErrorCode(parseFloat(r[an.variable.key]))
+        r.codigo_estacion==st.codigo && isErrorCode(parseFloat(r[an.variable.key]))
       );
-      const errHours = [...new Set(errRows.map(r=>parseHour(r.fecha_hora)))].sort();
+      const keyFn = mode==='mes' ? parseDay : parseHour;
+      const errPeriods = [...new Set(errRows.map(r=>keyFn(r.fecha_hora)))].sort();
       errorNotes.push({
         codigo:st.codigo, nombre:st.nombre,
         variable:an.variable.label,
         tipo:an.valor,
-        desde:errHours[0]||'—',
-        hasta:errHours[errHours.length-1]||'—',
-        count:errHours.length
+        desde:errPeriods[0]||'—',
+        hasta:errPeriods[errPeriods.length-1]||'—',
+        count:errPeriods.length
       });
     });
   });
 
-  // Build anomaly table rows with embedded chart
   let aRows='';
   mainAnomalias.forEach((a,i)=>{
-    // Find chart for this station+variable
     const chartKey=`${a.codigo}::${a.variable}`;
     const chartUrl=chartMap[chartKey]||null;
     const bg=i%2===0?'#f5f8ff':'#ffffff';
@@ -636,27 +708,24 @@ function buildWord(results, aiData, chartMap, semana, revisor, numInf){
       <td style="border:1px solid #c8d6e5;padding:4px;vertical-align:middle;text-align:center;min-width:220px">
         ${chartUrl
           ? `<img src="${chartUrl}" style="width:100%;max-width:280px;display:block;margin:0 auto">`
-          : '<span style="color:#aaa;font-size:8pt;font-style:italic">sin datos horarios</span>'
+          : '<span style="color:#aaa;font-size:8pt;font-style:italic">sin datos</span>'
         }
       </td>
     </tr>`;
   });
-  if(!aRows) aRows=`<tr><td colspan="5" style="border:1px solid #c8d6e5;padding:14px;text-align:center;color:#1e8449;font-style:italic">Sin anomalías detectadas en el período.</td></tr>`;
+  if(!aRows) aRows=`<tr><td colspan="6" style="border:1px solid #c8d6e5;padding:14px;text-align:center;color:#1e8449;font-style:italic">Sin anomalías detectadas en el período.</td></tr>`;
 
   const acciones=(ai.acciones_inmediatas||[]).map(a=>`<li style="margin-bottom:4px">${a}</li>`).join('');
+  const numSec = (v) => [spikeNotes.length>0,errorNotes.length>0].filter(Boolean).reduce((n,b,i)=>b&&i<v?n+1:n,3) + (v===4?0:0);
 
   return`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
 @page{size:letter landscape;margin:1.5cm 1.8cm;}
 body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a2e;line-height:1.5;}
 h2{font-size:10.5pt;color:#0d2d6b;background:#e8f0fe;padding:5px 12px;margin:14px 0 7px;border-left:4px solid #1a4fa0;}
-p{margin-bottom:5px;}
-table{border-collapse:collapse;}
-ul{margin-left:18px;margin-bottom:8px;}
-li{font-size:9.5pt;}
+p{margin-bottom:5px;}table{border-collapse:collapse;}ul{margin-left:18px;margin-bottom:8px;}li{font-size:9.5pt;}
 </style></head><body>
 
-<!-- HEADER -->
 <table style="width:100%;border-collapse:collapse;margin-bottom:0">
   <tr style="background:#1a4fa0">
     <td colspan="3" style="padding:5px 12px;font-size:7pt;color:#ffffff;font-weight:bold;letter-spacing:.8px;text-align:center">REPÚBLICA DE PANAMÁ · INSTITUTO DE METEOROLOGÍA E HIDROLOGÍA DE PANAMÁ "ING. OVIGILDO HERRERA MARCUCCI"</td>
@@ -664,23 +733,22 @@ li{font-size:9.5pt;}
   <tr>
     <td style="width:50px;vertical-align:middle;font-size:32px;padding-right:10px;text-align:center;padding-top:6px">🇵🇦</td>
     <td style="vertical-align:middle">
-      <div style="font-size:14pt;font-weight:bold;color:#0d2d6b;margin:2px 0">INFORME DE REVISIÓN · ESTACIONES SATELITALES</div>
+      <div style="font-size:14pt;font-weight:bold;color:#0d2d6b;margin:2px 0">INFORME DE REVISIÓN ${modeLabel} · ESTACIONES SATELITALES</div>
       <div style="font-size:8.5pt;color:#1a4fa0;font-style:italic">Dirección de Climatología · Sección de Monitoreo de Red</div>
     </td>
     <td style="width:160px;vertical-align:top;text-align:right;font-size:7.5pt;color:#555">
       <div style="font-weight:bold;color:#1a4fa0;font-size:9.5pt">${numInf}</div>
-      <div>${semStr}</div><div>${fecha}</div>
+      <div>${periodoLabel}</div><div>${fecha}</div>
       <div style="color:#c0392b;font-weight:bold">INTERNO</div>
     </td>
   </tr>
 </table>
 <div style="height:3px;background:#1a4fa0;margin-bottom:8px"></div>
 
-<!-- META + STATS en una fila -->
 <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
   <tr>
     <td style="background:#eef3fa;border:1px solid #c8d6e5;padding:6px 10px;width:20%"><div style="font-size:6.5pt;color:#888">TÉCNICO REVISOR</div><div style="font-weight:bold;color:#0d2d6b;font-size:9pt">${revisor||'—'}</div></td>
-    <td style="background:#eef3fa;border:1px solid #c8d6e5;padding:6px 10px;width:20%"><div style="font-size:6.5pt;color:#888">PERÍODO</div><div style="font-weight:bold;color:#0d2d6b;font-size:9pt">${semStr}</div></td>
+    <td style="background:#eef3fa;border:1px solid #c8d6e5;padding:6px 10px;width:20%"><div style="font-size:6.5pt;color:#888">PERÍODO</div><div style="font-weight:bold;color:#0d2d6b;font-size:9pt">${periodoLabel}</div></td>
     <td style="background:#eef3fa;border:1px solid #c8d6e5;padding:6px 10px;width:15%;text-align:center"><div style="font-size:20pt;font-weight:bold;color:#1a4fa0">${String(results.length)}</div><div style="font-size:6.5pt;color:#888">ESTACIONES</div></td>
     <td style="background:#eef3fa;border:1px solid #c8d6e5;padding:6px 10px;width:15%;text-align:center"><div style="font-size:20pt;font-weight:bold;color:#1e8449">${String(estOk)}</div><div style="font-size:6.5pt;color:#888">SIN ANOMALÍAS</div></td>
     <td style="background:#eef3fa;border:1px solid #c8d6e5;padding:6px 10px;width:15%;text-align:center"><div style="font-size:20pt;font-weight:bold;color:#d68910">${String(estErr)}</div><div style="font-size:6.5pt;color:#888">CON ANOMALÍAS</div></td>
@@ -690,15 +758,16 @@ li{font-size:9.5pt;}
 
 <h2>1. RESUMEN</h2>
 <p>${ai.resumen||'—'} ${ai.condiciones||''}</p>
-<p style="font-size:8pt;color:#555">Metodología: datos agregados por hora (∑ acumulado: Precipitación, Brillo Solar · x̄ promedio: resto). Rangos por región: Caribe (lluvia ≤80mm/h), Pacífico húmedo (≤60mm/h), Pacífico seco/Azuero (≤40mm/h). Temperatura: 5–45°C. Códigos de error del datalogger (-1310.7, -89x, -9999) excluidos del análisis. Referencia: OMM-N°8 (2018).</p>
+<p style="font-size:8pt;color:#555">${metodNote}</p>
 
-<h2>2. ANOMALÍAS DETECTADAS — con gráfica horaria</h2>
+<h2>2. ANOMALÍAS DETECTADAS — con gráfica ${mode==='mes'?'diaria':'horaria'}</h2>
 <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
   <thead><tr style="background:#1a4fa0;color:#fff">
     <th style="padding:5px 8px;text-align:left">Código / Estación</th>
     <th style="padding:5px 8px;text-align:left">Variable</th>
     <th style="padding:5px 8px;text-align:left">Tipo</th>
     <th style="padding:5px 8px;text-align:left">Hipótesis</th>
+    <th style="padding:5px 8px;text-align:left">Acción</th>
     <th style="padding:5px 8px;text-align:center;min-width:220px">Gráfico del hallazgo</th>
   </tr></thead>
   <tbody>${aRows}</tbody>
@@ -706,14 +775,12 @@ li{font-size:9.5pt;}
 
 ${spikeNotes.length>0?`
 <h2>3. NOTAS — PICOS AISLADOS</h2>
-<p style="font-size:8.5pt;color:#555;margin-bottom:6px">Los siguientes registros presentaron un único valor fuera de rango (pico puntual). Se excluyen de la tabla principal por ser eventos aislados no reiterados. Se recomienda monitorear en la próxima revisión.</p>
+<p style="font-size:8.5pt;color:#555;margin-bottom:6px">Los siguientes registros presentaron un único valor fuera de rango (pico puntual). Se excluyen de la tabla principal. Se recomienda monitorear en la próxima revisión.</p>
 <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
   <thead><tr style="background:#6b8cae;color:#fff">
-    <th style="padding:5px 8px">Código</th>
-    <th style="padding:5px 8px">Estación</th>
-    <th style="padding:5px 8px">Variable</th>
-    <th style="padding:5px 8px">Valor</th>
-    <th style="padding:5px 8px">Fecha / Hora</th>
+    <th style="padding:5px 8px">Código</th><th style="padding:5px 8px">Estación</th>
+    <th style="padding:5px 8px">Variable</th><th style="padding:5px 8px">Valor</th>
+    <th style="padding:5px 8px">${mode==='mes'?'Fecha':'Fecha / Hora'}</th>
   </tr></thead>
   <tbody>
     ${spikeNotes.map((s,i)=>`<tr style="background:${i%2===0?'#f5f8ff':'#fff'}">
@@ -721,18 +788,17 @@ ${spikeNotes.length>0?`
       <td style="border:1px solid #c8d6e5;padding:5px 8px">${s.nombre}</td>
       <td style="border:1px solid #c8d6e5;padding:5px 8px">${s.variable}</td>
       <td style="border:1px solid #c8d6e5;padding:5px 8px;font-weight:bold;color:#d68910">${s.val.toFixed(1)} ${s.unit}</td>
-      <td style="border:1px solid #c8d6e5;padding:5px 8px;font-family:monospace">${s.hora}</td>
+      <td style="border:1px solid #c8d6e5;padding:5px 8px;font-family:monospace">${s.period}</td>
     </tr>`).join('')}
   </tbody>
 </table>`:''}
 
 ${errorNotes.length>0?`
 <h2>${spikeNotes.length>0?'4':'3'}. ERRORES DE SENSOR / DATALOGGER</h2>
-<p style="font-size:8.5pt;color:#555;margin-bottom:6px">Los siguientes registros contienen códigos de error del datalogger que indican desconexión o fallo del sensor (<strong>-1310.7 / -89x / -9999</strong>). Estos valores fueron excluidos del análisis estadístico y de las gráficas. Se muestran aquí para gestión de mantenimiento.</p>
+<p style="font-size:8.5pt;color:#555;margin-bottom:6px">Los siguientes registros contienen códigos de error del datalogger (<strong>-1310.7 / -89x / -9999</strong>). Excluidos del análisis estadístico. Se muestran para gestión de mantenimiento.</p>
 <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
   <thead><tr style="background:#888;color:#fff">
-    <th style="padding:5px 8px;text-align:left">Código</th>
-    <th style="padding:5px 8px;text-align:left">Estación</th>
+    <th style="padding:5px 8px;text-align:left">Código</th><th style="padding:5px 8px;text-align:left">Estación</th>
     <th style="padding:5px 8px;text-align:left">Variable</th>
     <th style="padding:5px 8px;text-align:left">Registros con error</th>
     <th style="padding:5px 8px;text-align:left">Primera ocurrencia</th>
@@ -743,17 +809,17 @@ ${errorNotes.length>0?`
       <td style="border:1px solid #ddd;padding:5px 8px;font-weight:bold;color:#555">${e.codigo}</td>
       <td style="border:1px solid #ddd;padding:5px 8px">${e.nombre}</td>
       <td style="border:1px solid #ddd;padding:5px 8px">${e.variable}</td>
-      <td style="border:1px solid #ddd;padding:5px 8px;text-align:center">${e.count} hora(s)</td>
+      <td style="border:1px solid #ddd;padding:5px 8px;text-align:center">${e.count} ${unidadTiempo}</td>
       <td style="border:1px solid #ddd;padding:5px 8px;font-family:monospace;font-size:8pt">${e.desde}</td>
       <td style="border:1px solid #ddd;padding:5px 8px;font-family:monospace;font-size:8pt">${e.hasta}</td>
     </tr>`).join('')}
   </tbody>
 </table>`:''}
 
-<h2>${[spikeNotes.length>0, errorNotes.length>0].filter(Boolean).length + 3}. ACCIONES INMEDIATAS</h2>
+<h2>${[spikeNotes.length>0,errorNotes.length>0].filter(Boolean).length+3}. ACCIONES INMEDIATAS</h2>
 ${acciones?`<ul>${acciones}</ul>`:'<p style="font-style:italic;color:#888">Sin acciones urgentes.</p>'}
 
-<h2>${[spikeNotes.length>0, errorNotes.length>0].filter(Boolean).length + 4}. CONCLUSIÓN</h2>
+<h2>${[spikeNotes.length>0,errorNotes.length>0].filter(Boolean).length+4}. CONCLUSIÓN</h2>
 <p>${ai.conclusion||'—'}</p>
 
 <hr style="border:none;border-top:2px solid #1a4fa0;margin:22px 0 10px">
@@ -778,14 +844,17 @@ ${acciones?`<ul>${acciones}</ul>`:'<p style="font-style:italic;color:#888">Sin a
 // GENERATE FLOW
 // ═══════════════════════════════════════════════════
 async function generate(){
-  const semana=document.getElementById('semana').value;
+  const periodoVal=getPeriodValue();
   const revisor=document.getElementById('revisor').value;
   const numInf=document.getElementById('numInf').value;
   const contexto=document.getElementById('contexto').value;
+  const mode=currentMode;
 
-  if(!semana){alert('Selecciona la semana.');return;}
+  if(!periodoVal){alert('Selecciona el período.');return;}
   if(!csvData.length){alert('Carga el CSV primero.');return;}
 
+  document.getElementById('progTitle').textContent =
+    mode==='mes' ? '⚙️ Procesando análisis mensual...' : '⚙️ Procesando análisis semanal...';
   document.getElementById('emptyState').style.display='none';
   document.getElementById('resultArea').classList.remove('show');
   document.getElementById('progArea').classList.add('show');
@@ -795,11 +864,10 @@ async function generate(){
     stepOn('s1');await tick(200);stepOk('s1');prog(14);
     stepOn('s2');await tick(300);stepOk('s2');prog(28);
     stepOn('s3');await tick(200);
-    const results=validateData();
+    const results=validateData(mode);
     stepOk('s3');prog(45);
 
     stepOn('s4');await tick(100);
-    // Build hourly per station
     const byStation={};
     csvData.forEach(row=>{
       const cod=row.codigo_estacion;
@@ -807,32 +875,31 @@ async function generate(){
       byStation[cod].rows.push(row);
     });
 
-    // Generate charts keyed by "codigo::variableLabel"
     const chartMap={};
     results.filter(e=>!e.ok).forEach(st=>{
-      const hourly=aggregateHourly(byStation[st.codigo]?.rows||[], st.region);
-      const precipMax=PRECIP_MAX[st.region]||60;
+      const agg=aggregateData(byStation[st.codigo]?.rows||[], st.region, mode);
+      const precipMax=getPrecipMax(st.region, mode);
       st.anomalies.filter(an=>!an.isError).forEach(an=>{
         const key=`${st.codigo}::${an.variable.label}`;
-        if(chartMap[key]) return; // already generated
+        if(chartMap[key]) return;
         const vMax=an.variable.key==='precipitacion_mm'?precipMax:an.variable.max;
-        const dataUrl=generateChart(hourly,an.variable,an.anomalyPts,an.variable.min,vMax);
+        const dataUrl=generateChart(agg,an.variable,an.anomalyPts,an.variable.min,vMax,mode);
         if(dataUrl) chartMap[key]=dataUrl;
       });
     });
     stepOk('s4');prog(64);
 
     stepOn('s5');
-    const aiData=await runAI(results,semana,revisor,contexto);
+    const aiData=await runAI(results,getPeriodLabel(mode),revisor,contexto,mode);
     stepOk('s5');prog(82);
 
     stepOn('s6');
-    const html=buildWord(results,aiData,chartMap,semana,revisor,numInf);
+    const html=buildWord(results,aiData,chartMap,periodoVal,revisor,numInf,mode);
     const blob=new Blob([html],{type:'application/msword'});
     await tick(300);stepOk('s6');prog(100);
 
     await tick(400);
-    showResult(results,aiData,blob,semana,revisor,numInf);
+    showResult(results,aiData,blob,periodoVal,revisor,numInf,mode);
 
   }catch(err){
     console.error(err);
@@ -845,15 +912,16 @@ async function generate(){
   document.getElementById('btnGen').disabled=false;
 }
 
-function showResult(results,aiData,blob,semana,revisor,numInf){
+function showResult(results,aiData,blob,periodoVal,revisor,numInf,mode){
   document.getElementById('progArea').classList.remove('show');
   document.getElementById('resultArea').classList.add('show');
   const estOk=results.filter(e=>e.ok).length;
   const estErr=results.filter(e=>!e.ok).length;
   const totalAnom=results.reduce((s,e)=>s+e.anomalies.length,0);
+  const periodoLabel=getPeriodLabel(mode);
 
   document.getElementById('resMeta').textContent=
-    `${semana.replace('-W',' · Sem ')} · ${revisor||'—'} · ${numInf}`;
+    `${periodoLabel} · ${revisor||'—'} · ${numInf} · Modo: ${mode==='mes'?'Mensual':'Semanal'}`;
   document.getElementById('statsBox').innerHTML=`
     <div class="stat"><span class="stat-n c-blue">${results.length}</span><div class="stat-l">REVISADAS</div></div>
     <div class="stat"><span class="stat-n c-green">${estOk}</span><div class="stat-l">SIN ANOMALÍAS</div></div>
@@ -877,13 +945,12 @@ function showResult(results,aiData,blob,semana,revisor,numInf){
       <tbody>${rows}</tbody>
     </table>`;
 
+  const ext = mode==='mes' ? periodoVal.replace('-','-M') : periodoVal.replace('-W','_Sem');
   document.getElementById('btnDl').onclick=()=>{
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;
-    a.download=`IMHPA_${semana.replace('-W','_Sem')}_${numInf}.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.href=url;a.download=`IMHPA_${ext}_${numInf}.doc`;
+    a.click();URL.revokeObjectURL(url);
   };
 }
 
